@@ -27,7 +27,7 @@ const large = computed(() => props.node.props['media-size'] === 'large');
         :class="{ 'wa-option--large': large, 'wa-option--disabled': item.enabled === false || disabled || node.props.enabled === false }"
       >
         <input
-          class="wa-option__control"
+          class="wa-option__control wa-option__control--end"
           type="radio"
           :name="group"
           :value="item.id"

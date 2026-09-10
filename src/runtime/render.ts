@@ -65,14 +65,24 @@ export function renderScreen(
   screen: Screen,
   options: FlattenOptions & { errorMessage: string | null },
 ): RenderedScreen {
+  const children = flattenComponents(screen.layout.children, options);
+
   return {
     id: screen.id,
     title: screen.title ?? '',
     terminal: screen.terminal === true,
     success: screen.success === true,
-    children: flattenComponents(screen.layout.children, options),
+    children,
     errorMessage: options.errorMessage,
+    canSubmit: children.every((node) => !node.name || node.props.required !== true || node.props.enabled === false || !isEmptyValue(node.value)),
   };
+}
+
+/** Empty for the purpose of "required": undefined, null, '', [], false. */
+export function isEmptyValue(value: unknown): boolean {
+  if (value === undefined || value === null || value === '' || value === false) return true;
+
+  return Array.isArray(value) && value.length === 0;
 }
 
 /** Collect input components in render order, including the ones inside Form/If/Switch. */

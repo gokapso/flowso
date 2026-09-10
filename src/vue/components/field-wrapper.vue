@@ -12,7 +12,7 @@ defineProps<{
 <template>
   <div class="wa-field" :class="{ 'wa-field--error': !!error }">
     <label v-if="label" class="wa-field__label" :class="{ 'wa-field__label--large': large }" :for="inputId">
-      {{ label }}<span v-if="required" class="wa-field__required"> *</span>
+      {{ label }}
     </label>
     <slot />
     <div v-if="error" class="wa-field__error" role="alert">{{ error }}</div>
@@ -65,11 +65,20 @@ defineProps<{
 }
 .wa-option {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px;
-  padding: 10px 0;
+  padding: 12px 0;
   border-bottom: 1px solid var(--wa-border);
   cursor: pointer;
+}
+.wa-option > span {
+  flex: 1;
+}
+.wa-option__control--end {
+  order: 2;
+  margin-top: 0;
+  width: 20px;
+  height: 20px;
 }
 .wa-option:last-child {
   border-bottom: 0;

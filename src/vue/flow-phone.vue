@@ -57,6 +57,13 @@ defineExpose({ restart, state, rendered });
 
 <template>
   <div class="wa-flow wa-phone" :class="{ 'wa-dark': dark, 'wa-ios': platform === 'ios' }">
+    <div class="wa-phone__chat" aria-hidden="true">
+      <div class="wa-phone__chat-header">
+        <span class="wa-phone__avatar" />
+        <span class="wa-phone__chat-name">Business</span>
+      </div>
+    </div>
+    <div class="wa-phone__sheet">
     <div class="wa-phone__header">
       <button class="wa-phone__icon" type="button" :disabled="!canGoBack" aria-label="Back" @click="back()">
         <span v-if="canGoBack">‹</span>
@@ -102,6 +109,7 @@ defineExpose({ restart, state, rendered });
         <pre class="wa-phone__json">{{ JSON.stringify(state.events.slice(-10), null, 2) }}</pre>
       </details>
     </div>
+    </div>
   </div>
 </template>
 
@@ -112,21 +120,60 @@ defineExpose({ restart, state, rendered });
   width: 100%;
   max-width: 390px;
   height: 100%;
-  min-height: 480px;
+  min-height: 560px;
   border: 1px solid var(--wa-border);
   border-radius: 24px;
   overflow: hidden;
+  position: relative;
+  background-color: #efeae2;
+  background-image: radial-gradient(rgba(0, 0, 0, 0.035) 1px, transparent 1px);
+  background-size: 14px 14px;
+}
+.wa-dark.wa-phone {
+  background-color: #0b141a;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+}
+.wa-phone__chat {
+  height: 56px;
+  flex: none;
+}
+.wa-phone__chat-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 56px;
+  padding: 0 14px;
+  background: var(--wa-header);
+  color: var(--wa-header-text);
+}
+.wa-phone__avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.35);
+}
+.wa-phone__chat-name {
+  font-size: 15px;
+  font-weight: 600;
+}
+.wa-phone__sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: 72px;
+  display: flex;
+  flex-direction: column;
   background: var(--wa-bg);
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
 }
 .wa-phone__header {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 8px;
-  background: var(--wa-header);
-  color: var(--wa-header-text);
-}
-.wa-ios .wa-phone__header {
+  padding: 10px 8px;
   background: var(--wa-bg);
   color: var(--wa-text);
   border-bottom: 1px solid var(--wa-border);
@@ -149,6 +196,7 @@ defineExpose({ restart, state, rendered });
   flex: 1;
   font-size: 16px;
   font-weight: 600;
+  text-align: center;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

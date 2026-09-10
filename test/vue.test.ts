@@ -25,12 +25,27 @@ describe('FlowPhone', () => {
     expect(wrapper.find('.wa-footer__button').text()).toBe('Continue');
   });
 
-  it('shows validation errors when the footer is pressed with empty required fields', async () => {
+  it('greys out the footer until required fields are filled, like the WhatsApp client', async () => {
     const wrapper = mount(FlowPhone, { props: { flow } });
+    await settle();
+    const button = wrapper.find('.wa-footer__button');
+    expect(button.attributes('disabled')).toBeDefined();
+    await wrapper.find('input[type="email"]').setValue('ana@example.com');
+    await wrapper.findAll('input[type="radio"]')[0]!.setValue(true);
+    await settle();
+    expect(wrapper.find('.wa-footer__button').attributes('disabled')).toBeUndefined();
+    expect(wrapper.text()).toContain('Managed by the business');
+  });
+
+  it('shows validation errors for filled but invalid fields on submit', async () => {
+    const wrapper = mount(FlowPhone, { props: { flow } });
+    await settle();
+    await wrapper.find('input[type="email"]').setValue('not-an-email');
+    await wrapper.findAll('input[type="radio"]')[0]!.setValue(true);
     await settle();
     await wrapper.find('.wa-footer__button').trigger('click');
     await settle();
-    expect(wrapper.findAll('.wa-field__error').map((e) => e.text())).toEqual(['This field is required', 'This field is required']);
+    expect(wrapper.findAll('.wa-field__error').map((e) => e.text())).toEqual(['Enter a valid email']);
     expect(wrapper.find('.wa-phone__title').text()).toBe('Book an appointment');
   });
 

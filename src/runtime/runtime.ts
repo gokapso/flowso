@@ -397,7 +397,7 @@ export function createFlowRuntime(options: FlowRuntimeOptions): FlowRuntime {
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
 
-        return { id: screen.id, title: screen.title ?? '', terminal: screen.terminal === true, success: screen.success === true, children: [], errorMessage: `Expression error: ${message}` };
+        return { id: screen.id, title: screen.title ?? '', terminal: screen.terminal === true, success: screen.success === true, children: [], errorMessage: `Expression error: ${message}`, canSubmit: false };
       }
     },
   };

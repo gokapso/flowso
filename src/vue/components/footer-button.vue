@@ -26,8 +26,7 @@ function click() {
 
 <style>
 .wa-footer {
-  margin-top: auto;
-  padding-top: 8px;
+  padding-top: 4px;
 }
 .wa-footer__captions {
   display: flex;
@@ -49,7 +48,8 @@ function click() {
   font-family: inherit;
 }
 .wa-footer__button:disabled {
-  opacity: 0.5;
+  background: var(--wa-bg-muted);
+  color: var(--wa-text-muted);
   cursor: default;
 }
 </style>

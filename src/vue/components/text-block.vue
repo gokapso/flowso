@@ -30,7 +30,7 @@ const classes = computed(() => ({
   word-break: break-word;
 }
 .wa-text--heading {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 700;
   line-height: 1.3;
 }

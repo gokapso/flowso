@@ -98,6 +98,8 @@ export type RenderedScreen = {
   success: boolean;
   children: RenderedNode[];
   errorMessage: string | null;
+  /** False while a visible, enabled, required input is empty. The WhatsApp client greys out the Footer button. */
+  canSubmit: boolean;
 };
 
 export type FlowRuntime = {

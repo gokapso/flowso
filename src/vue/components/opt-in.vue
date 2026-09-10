@@ -23,7 +23,7 @@ function readMore() {
         @change="emit('input', ($event.target as HTMLInputElement).checked)"
       />
       <span class="wa-option__title">
-        {{ node.props.label }}<span v-if="node.props.required === true" class="wa-field__required"> *</span>
+        {{ node.props.label }}
         <button v-if="node.props['on-click-action']" type="button" class="wa-optin__link" :disabled="disabled" @click="readMore">Read more</button>
       </span>
     </label>
