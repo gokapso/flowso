@@ -31,7 +31,11 @@
       "import": "./dist/vue.js"
     },
     "./vue/theme.css": "./dist/vue/theme.css",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./catalog": {
+      "types": "./dist/catalog/index.d.ts",
+      "import": "./dist/catalog.js"
+    }
   },
   "files": [
     "dist",

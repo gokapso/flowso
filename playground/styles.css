@@ -46,3 +46,24 @@ body {
 @media (max-width: 1100px) { .pg__main { grid-template-columns: minmax(0, 1fr) 400px; } .pg__side { grid-column: 1 / -1; border-left: 0; border-top: 1px solid #e9edef; max-height: 40vh; } }
 .pg__main > * { min-height: 0; }
 .pg__editor { overflow: hidden; }
+.gal { position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; background: #f0f2f5; }
+.gal__bar { display: flex; align-items: center; gap: 12px; padding: 8px 12px; background: #fff; border-bottom: 1px solid #e9edef; }
+.gal__search { font: inherit; padding: 6px 10px; border: 1px solid #e9edef; border-radius: 6px; width: 320px; }
+.gal__bar .pg__muted { margin-right: auto; }
+.gal__main { display: grid; grid-template-columns: 240px 440px minmax(0, 1fr); flex: 1; min-height: 0; }
+.gal__list { overflow: auto; background: #fff; border-right: 1px solid #e9edef; padding: 8px 0; }
+.gal__group-title { padding: 8px 12px 4px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: #667781; }
+.gal__item { display: flex; justify-content: space-between; width: 100%; padding: 6px 12px; border: 0; background: transparent; text-align: left; font: inherit; cursor: pointer; }
+.gal__item:hover { background: #f0f2f5; }
+.gal__item--active { background: #e8f5f1; color: #008069; font-weight: 600; }
+.gal__version { font-size: 11px; color: #667781; font-weight: 400; }
+.gal__preview { display: flex; align-items: center; justify-content: center; padding: 16px; background: #e5ddd5; min-height: 0; overflow: auto; }
+.gal__preview .wa-phone { height: 100%; max-height: 760px; }
+.gal__preview-error { background: #fdecea; color: #b71c1c; padding: 12px; border-radius: 8px; font-size: 13px; max-width: 360px; }
+.gal__detail { display: flex; flex-direction: column; gap: 8px; padding: 16px; overflow: auto; background: #fff; border-left: 1px solid #e9edef; min-width: 0; }
+.gal__name { margin: 0; font-size: 18px; }
+.gal__desc { margin: 0; color: #3b4a54; }
+.gal__limits { margin: 0; padding-left: 18px; font-size: 13px; color: #667781; }
+.gal__json { flex: 1; min-height: 260px; font-family: ui-monospace, Menlo, monospace; font-size: 12px; padding: 8px; border: 1px solid #e9edef; border-radius: 6px; resize: vertical; }
+.gal__actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.gal__actions select { font: inherit; padding: 6px; border: 1px solid #e9edef; border-radius: 6px; }

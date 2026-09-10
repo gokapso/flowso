@@ -16,6 +16,7 @@ One npm package with subpath exports:
 | `@kapso/whatsapp-flows-simulator/runtime` | Pure state machine: screens, back stack, forms, `${data.*}` / `${form.*}` / `${screen.X.*}` bindings, backtick nested expressions, `If` / `Switch`, `navigate` / `complete` / `data_exchange` / `update_data` / `open_url`, client-side validation. No DOM, no network. |
 | `@kapso/whatsapp-flows-simulator/validator` | Local Flow JSON validator that returns diagnostics in the shape of Meta's `validation_errors` (code, message, JSON pointer). |
 | `@kapso/whatsapp-flows-simulator/endpoint` | Client that calls a data endpoint the way Meta does: RSA-OAEP (SHA-256) + AES-128-GCM, flipped IV on responses, `INIT` / `data_exchange` / `BACK` / `ping`, status mapping (421 / 427 / 432). Plaintext and mock modes. Server helper to build a local encrypted endpoint for tests. |
+| `@kapso/whatsapp-flows-simulator/catalog` | Component catalog (every Flow JSON component plus screen patterns, with snippet, minimum version, limits and docs link) and `insertComponent` / `insertScreen` helpers that place a snippet in the right spot of a flow. |
 | `@kapso/whatsapp-flows-simulator/vue` | `FlowPhone` component (WhatsApp-style phone frame with Android and iOS looks, dark mode) and `useFlowRuntime` composable. |
 | `whatsapp-flows-sim` (CLI) | `serve flow.json` opens the playground with hot reload and proxies `data_exchange` to your endpoint. `validate flow.json` for CI. |
 
@@ -45,6 +46,10 @@ response with timing, validation failure and completion payload).
 
 The completion screen shows exactly what WhatsApp sends back to your business in
 `interactive.nfm_reply.response_json`.
+
+**Components** opens a Block Kit Builder–style gallery: pick any component or screen pattern, see
+it rendered by the real runtime, edit its JSON by hand, and insert it into a screen of your flow
+(inside the Form when there is one, before the Footer, with duplicate input names renamed).
 
 ## Use the runtime in your own code
 

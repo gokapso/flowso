@@ -21,6 +21,7 @@ export default defineConfig({
         validator: fileURLToPath(new URL('./src/validator/index.ts', import.meta.url)),
         endpoint: fileURLToPath(new URL('./src/endpoint/index.ts', import.meta.url)),
         vue: fileURLToPath(new URL('./src/vue/index.ts', import.meta.url)),
+        catalog: fileURLToPath(new URL('./src/catalog/index.ts', import.meta.url)),
         'cli/main': fileURLToPath(new URL('./src/cli/main.ts', import.meta.url)),
       },
       formats: ['es'],

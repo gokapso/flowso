@@ -6,6 +6,7 @@ import type { FlowDataEndpoint, FlowDataExchangeRequest, RuntimeEvent, StartOpti
 import { validateFlowJson, type ValidationIssue } from '../src/validator/index';
 import FlowPhone from '../src/vue/flow-phone.vue';
 import JsonEditor from './json-editor.vue';
+import ComponentGallery from './component-gallery.vue';
 import sample from '../fixtures/appointment.flow.json';
 
 const STORAGE_KEY = 'whatsapp-flows-simulator:flow';
@@ -21,6 +22,13 @@ const events = ref<RuntimeEvent[]>([]);
 const phone = ref<InstanceType<typeof FlowPhone> | null>(null);
 const cliConnected = ref(false);
 const flowFileName = ref<string | null>(null);
+const showGallery = ref(false);
+
+function onGalleryInsert(flow: FlowJson, path: string) {
+  source.value = JSON.stringify(flow, null, 2);
+  showGallery.value = false;
+  events.value = [...events.value.slice(-199), { type: 'warning', message: `Inserted component at ${path}` }];
+}
 
 // Endpoint configuration -----------------------------------------------------
 type EndpointMode = 'none' | 'mock' | 'proxy' | 'direct';
@@ -154,6 +162,8 @@ function describe(event: RuntimeEvent): string {
       return `validation failed ${JSON.stringify(event.errors)}`;
     case 'error':
       return `error (${event.kind}) ${event.message}`;
+    case 'warning':
+      return `warning: ${event.message}`;
     default:
       return JSON.stringify(event);
   }
@@ -221,12 +231,14 @@ onBeforeUnmount(() => eventSource?.close());
 
 <template>
   <div class="pg">
+    <ComponentGallery :flow="parsed" :open="showGallery" @close="showGallery = false" @insert="onGalleryInsert" />
     <div class="pg__bar">
       <span class="pg__brand">WhatsApp Flows Simulator</span>
       <span v-if="cliConnected" class="pg__muted">watching {{ flowFileName }}</span>
       <label>Start <select v-model="startMode"><option value="navigate">navigate (first screen)</option><option value="data_exchange">data_exchange (INIT)</option></select></label>
       <label>Platform <select v-model="platform"><option value="android">Android</option><option value="ios">iOS</option></select></label>
       <label><input v-model="dark" type="checkbox" /> Dark</label>
+      <button class="pg__btn" type="button" @click="showGallery = true">Components</button>
       <button class="pg__btn" type="button" @click="loadSample">Sample</button>
       <label class="pg__btn">Open… <input type="file" accept="application/json" hidden @change="loadFile" /></label>
       <button class="pg__btn" type="button" @click="download">Download</button>
