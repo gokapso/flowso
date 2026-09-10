@@ -29,12 +29,7 @@ a { color: #1264a3; }
   background: #fff; border-bottom: 1px solid var(--line);
 }
 .pg__brand { display: flex; align-items: baseline; gap: 10px; }
-.pg__logo {
-  display: inline-flex; align-items: center; justify-content: center; align-self: center;
-  width: 28px; height: 28px; border-radius: 8px; background: var(--green); color: #fff; font-weight: 800; font-size: 15px;
-}
 .pg__brand-name { font-size: 18px; font-weight: 800; letter-spacing: -0.01em; }
-.pg__brand-sub { font-size: 12px; color: var(--muted); }
 .pg__tabs { display: flex; align-items: stretch; gap: 4px; height: 60px; }
 .pg__tab {
   position: relative; padding: 0 12px; border: 0; background: transparent; font-weight: 600; color: var(--muted); cursor: pointer;

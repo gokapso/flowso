@@ -268,9 +268,7 @@ onBeforeUnmount(() => eventSource?.close());
   <div class="pg">
     <header class="pg__bar">
       <div class="pg__brand">
-        <span class="pg__logo" aria-hidden="true">F</span>
         <span class="pg__brand-name">Flowso</span>
-        <span class="pg__brand-sub">WhatsApp Flows emulator</span>
       </div>
       <nav class="pg__tabs" aria-label="Mode">
         <button type="button" class="pg__tab" :class="{ 'pg__tab--active': !showGallery }" @click="showGallery = false">Builder</button>
