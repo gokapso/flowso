@@ -1,0 +1,71 @@
+{
+  "version": "7.3",
+  "routing_model": {
+    "FEEDBACK": ["THANKS"],
+    "THANKS": []
+  },
+  "screens": [
+    {
+      "id": "FEEDBACK",
+      "title": "Feedback",
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextHeading", "text": "How was your experience?" },
+          { "type": "TextBody", "text": "Your feedback helps us improve." },
+          {
+            "type": "Form",
+            "name": "feedback_form",
+            "children": [
+              {
+                "type": "RadioButtonsGroup",
+                "name": "rating",
+                "label": "Rating",
+                "required": true,
+                "data-source": [
+                  { "id": "5", "title": "★★★★★ Excellent" },
+                  { "id": "4", "title": "★★★★ Good" },
+                  { "id": "3", "title": "★★★ Average" },
+                  { "id": "2", "title": "★★ Poor" },
+                  { "id": "1", "title": "★ Very poor" }
+                ]
+              },
+              { "type": "TextArea", "name": "comment", "label": "Comments", "helper-text": "Optional" },
+              {
+                "type": "Footer",
+                "label": "Submit",
+                "on-click-action": {
+                  "name": "navigate",
+                  "next": { "type": "screen", "name": "THANKS" },
+                  "payload": { "rating": "${form.rating}", "comment": "${form.comment}" }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "THANKS",
+      "title": "Thank you",
+      "terminal": true,
+      "success": true,
+      "data": {
+        "rating": { "type": "string", "__example__": "5" },
+        "comment": { "type": "string", "__example__": "" }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextHeading", "text": "Thanks for your feedback" },
+          { "type": "TextBody", "text": "`'You rated us ' ${data.rating} ' out of 5.'`" },
+          {
+            "type": "Footer",
+            "label": "Done",
+            "on-click-action": { "name": "complete", "payload": { "rating": "${data.rating}", "comment": "${data.comment}" } }
+          }
+        ]
+      }
+    }
+  ]
+}

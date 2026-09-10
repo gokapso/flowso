@@ -10,6 +10,7 @@ import GalleryList from './gallery-list.vue';
 import GalleryDetail from './gallery-detail.vue';
 import { useGallery } from './use-gallery';
 import sample from '../fixtures/appointment.flow.json';
+import feedbackSample from '../fixtures/feedback.flow.json';
 
 const STORAGE_KEY = 'flowso:flow';
 
@@ -209,8 +210,20 @@ function restart() {
   void phone.value?.restart();
 }
 
-function loadSample() {
-  source.value = JSON.stringify(sample, null, 2);
+const SAMPLES: Record<string, { label: string; flow: unknown }> = {
+  feedback: { label: 'Feedback survey (static)', flow: feedbackSample },
+  appointment: { label: 'Appointment booking (with endpoint)', flow: sample },
+};
+
+function loadSample(event: Event) {
+  const select = event.target as HTMLSelectElement;
+  const entry = SAMPLES[select.value];
+  select.value = '';
+  if (!entry) return;
+  if (source.value.trim() && !window.confirm(`Replace the current flow with "${entry.label}"?`)) return;
+  source.value = JSON.stringify(entry.flow, null, 2);
+  flowFileName.value = null;
+  events.value = [];
 }
 
 /** Minimal valid flow to start from scratch. */
@@ -323,7 +336,7 @@ onBeforeUnmount(() => eventSource?.close());
         </button>
         <span class="pg__sep" />
         <button class="pg__btn" type="button" @click="newFlow">New</button>
-        <button class="pg__btn" type="button" @click="loadSample">Sample</button>
+        <label class="pg__select pg__select--btn"><select aria-label="Load a sample flow" @change="loadSample"><option value="">Samples…</option><option v-for="(item, key) in SAMPLES" :key="key" :value="key">{{ item.label }}</option></select></label>
         <label class="pg__btn">Open… <input type="file" accept="application/json" hidden @change="loadFile" /></label>
         <button class="pg__btn" type="button" @click="download">Download</button>
         <button class="pg__btn pg__btn--primary" type="button" @click="restart">Restart</button>
