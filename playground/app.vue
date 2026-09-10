@@ -5,6 +5,8 @@ import type { FlowJson } from '../src/schema/flow-json';
 import type { FlowDataEndpoint, FlowDataExchangeRequest, RuntimeEvent, StartOptions } from '../src/runtime/types';
 import { validateFlowJson, type ValidationIssue } from '../src/validator/index';
 import FlowPhone from '../src/vue/flow-phone.vue';
+import type { ScreenEdit } from '../src/vue/edit-types';
+import { moveComponent, removeComponent } from '../src/catalog/edit-component';
 import JsonEditor from './json-editor.vue';
 import GalleryList from './gallery-list.vue';
 import GalleryDetail from './gallery-detail.vue';
@@ -127,7 +129,28 @@ const endpoint = computed<FlowDataEndpoint | undefined>(() => {
   return undefined;
 });
 
-const startOptions = computed<StartOptions>(() => ({ mode: startMode.value }));
+/** Screen to reopen after an inline edit rebuilds the runtime; cleared on Restart. */
+const resumeScreen = ref<string | null>(null);
+const startOptions = computed<StartOptions>(() =>
+  resumeScreen.value ? { mode: 'navigate', screen: resumeScreen.value } : { mode: startMode.value },
+);
+const editMode = ref(true);
+
+function onEdit(edit: ScreenEdit) {
+  if (!parsed.value) return;
+  if (edit.kind === 'select') return;
+  const result = edit.kind === 'remove'
+    ? removeComponent(parsed.value, edit.screenId, edit.node.path)
+    : moveComponent(parsed.value, edit.screenId, edit.node.path, edit.kind);
+  if (!result.ok) {
+    events.value = [...events.value.slice(-199), { type: 'warning', message: result.error }];
+
+    return;
+  }
+  resumeScreen.value = edit.screenId;
+  source.value = JSON.stringify(result.flow, null, 2);
+  events.value = [...events.value.slice(-199), { type: 'warning', message: `${edit.kind === 'remove' ? 'Removed' : 'Moved'} ${edit.node.type} at ${edit.node.path}` }];
+}
 
 // Parse + validate -----------------------------------------------------------
 let parseTimer: ReturnType<typeof setTimeout> | null = null;
@@ -213,6 +236,7 @@ function describe(event: RuntimeEvent): string {
 
 function restart() {
   events.value = [];
+  resumeScreen.value = null;
   void phone.value?.restart();
 }
 
@@ -336,6 +360,9 @@ onBeforeUnmount(() => eventSource?.close());
         <span v-if="cliConnected && flowFileName" class="pg__watch"><span class="pg__dot" />{{ flowFileName }}</span>
         <label class="pg__select"><span>Start</span><select v-model="startMode"><option value="navigate">navigate</option><option value="data_exchange">data_exchange</option></select></label>
         <label class="pg__select"><span>Platform</span><select v-model="platform"><option value="android">Android</option><option value="ios">iOS</option></select></label>
+        <button class="pg__icon-btn" type="button" :title="editMode ? 'Hide edit handles' : 'Show edit handles on hover'" :aria-pressed="editMode" @click="editMode = !editMode">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
+        </button>
         <button class="pg__icon-btn" type="button" :title="dark ? 'Light phone' : 'Dark phone'" :aria-pressed="dark" @click="dark = !dark">
           <svg v-if="dark" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" /></svg>
           <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" /></svg>
@@ -376,6 +403,8 @@ onBeforeUnmount(() => eventSource?.close());
           :start-options="startOptions"
           :platform="platform"
           :dark="dark"
+          :editable="editMode && !showGallery"
+          @edit="onEdit"
           @event="onEvent"
           @open-url="(url) => window.open(url, '_blank')"
         />

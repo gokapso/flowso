@@ -4,6 +4,7 @@ import type { FlowJson, Action } from '../schema/flow-json';
 import type { FlowDataEndpoint, RuntimeEvent, StartOptions } from '../runtime/types';
 import { useFlowRuntime } from './use-flow-runtime';
 import FlowScreen from './flow-screen.vue';
+import type { ScreenEdit } from './edit-types';
 
 const props = withDefaults(
   defineProps<{
@@ -15,13 +16,16 @@ const props = withDefaults(
     strictRouting?: boolean;
     dark?: boolean;
     platform?: 'android' | 'ios';
+    /** Hover toolbar on components to move or remove them; emits `edit`. */
+    editable?: boolean;
   }>(),
-  { endpoint: undefined, flowToken: undefined, startOptions: undefined, useExamples: true, strictRouting: true, dark: false, platform: 'android' },
+  { endpoint: undefined, flowToken: undefined, startOptions: undefined, useExamples: true, strictRouting: true, dark: false, platform: 'android', editable: false },
 );
 
 const emit = defineEmits<{
   event: [event: RuntimeEvent];
   openUrl: [url: string];
+  edit: [edit: ScreenEdit];
 }>();
 
 const endpointRef = toRef(props, 'endpoint');
@@ -88,7 +92,7 @@ defineExpose({ restart, state, rendered });
           <strong>{{ state.error.kind }}</strong>: {{ state.error.message }}
           <button class="wa-phone__link" type="button" @click="restart()">Restart</button>
         </div>
-        <FlowScreen :screen="rendered" :loading="status === 'loading'" @action="onAction" @input="onInput" />
+        <FlowScreen :screen="rendered" :loading="status === 'loading'" :editable="editable" @action="onAction" @input="onInput" @edit="(edit: ScreenEdit) => emit('edit', edit)" />
       </template>
     </div>
 

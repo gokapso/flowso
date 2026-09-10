@@ -191,7 +191,7 @@ describe('runtime fixes', () => {
 
 describe('date and upload validation', () => {
   function node(type: RenderedNode['type'], value: unknown, props: Record<string, unknown> = {}): RenderedNode {
-    return { key: '0', type, props: { required: true, ...props }, name: 'f', value, error: null };
+    return { key: '0', path: 'children[0]', type, props: { required: true, ...props }, name: 'f', value, error: null };
   }
 
   it('rejects unavailable, out-of-range and incomplete dates', () => {

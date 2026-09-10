@@ -80,6 +80,8 @@ export type FlowRuntimeOptions = {
 
 export type RenderedNode = {
   key: string;
+  /** Location of the source component inside `screen.layout`, e.g. `children[2].children[0]` or `children[1].then[0]`. */
+  path: string;
   type: ComponentType;
   /** All component properties with dynamic values resolved. */
   props: Record<string, unknown>;

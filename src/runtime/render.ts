@@ -19,21 +19,28 @@ type FlattenOptions = {
  * Flatten a screen's component tree: evaluate `If` / `Switch`, unwrap `Form`, drop invisible
  * components, resolve every dynamic property, and attach values and errors to inputs.
  */
-export function flattenComponents(components: Component[], options: FlattenOptions, keyPrefix = ''): RenderedNode[] {
+export function flattenComponents(
+  components: Component[],
+  options: FlattenOptions,
+  keyPrefix = '',
+  pathPrefix = 'children',
+): RenderedNode[] {
   const nodes: RenderedNode[] = [];
   components.forEach((component, index) => {
     const key = `${keyPrefix}${index}`;
+    const path = `${pathPrefix}[${index}]`;
     if (component.type === 'If') {
       const condition = resolveValue(component.condition, options.context);
-      const branch = truthy(condition) ? component.then : component.else ?? [];
-      nodes.push(...flattenComponents(branch, options, `${key}.`));
+      const taken = truthy(condition);
+      const branch = taken ? component.then : component.else ?? [];
+      nodes.push(...flattenComponents(branch, options, `${key}.${taken ? 't' : 'e'}.`, `${path}.${taken ? 'then' : 'else'}`));
 
       return;
     }
     if (component.type === 'Switch') {
       const value = String(resolveValue(component.value, options.context) ?? '');
       const branch = component.cases[value] ?? [];
-      nodes.push(...flattenComponents(branch, options, `${key}.${value}.`));
+      nodes.push(...flattenComponents(branch, options, `${key}.${value}.`, `${path}.cases.${value}`));
 
       return;
     }
@@ -43,12 +50,12 @@ export function flattenComponents(components: Component[], options: FlattenOptio
     if (component.type === 'Form') {
       const errorMessages = resolveValue(component['error-messages'], options.context);
       const formErrors = errorMessages && typeof errorMessages === 'object' ? (errorMessages as Record<string, string>) : undefined;
-      nodes.push(...flattenComponents(component.children, { ...options, formErrors: formErrors ?? options.formErrors }, `${key}.`));
+      nodes.push(...flattenComponents(component.children, { ...options, formErrors: formErrors ?? options.formErrors }, `${key}.`, `${path}.children`));
 
       return;
     }
     const props = resolveDeep({ ...component }, options.context, { skipKey: isActionKey }) as Record<string, unknown>;
-    const node: RenderedNode = { key, type: component.type, props };
+    const node: RenderedNode = { key, path, type: component.type, props };
     if (isInputComponent(component)) {
       node.name = component.name;
       node.value = options.formValues[component.name];
