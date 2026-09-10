@@ -35,7 +35,7 @@ function previewFlow(entry: CatalogEntry): FlowJson {
   if (entry.placement === 'screen') {
     if (!entry.screen) throw new Error(`Missing screen: ${entry.id}`);
 
-    return { version: '7.3', routing_model: {}, screens: [entry.screen] };
+    return { version: '7.3', data_api_version: '3.0', routing_model: {}, screens: [entry.screen] };
   }
   if (!entry.component) throw new Error(`Missing component: ${entry.id}`);
   const children = [...(entry.previewContext ?? []), entry.component];
@@ -47,7 +47,7 @@ function previewFlow(entry: CatalogEntry): FlowJson {
   };
   if (navigatesToNext(children)) {
     return {
-      version: '7.3', routing_model: { PREVIEW: ['NEXT'], NEXT: [] },
+      version: '7.3', data_api_version: '3.0', routing_model: { PREVIEW: ['NEXT'], NEXT: [] },
       screens: [screen, {
         id: 'NEXT', terminal: true,
         layout: { type: 'SingleColumnLayout', children: [{ type: 'TextBody', text: 'Next screen' }, completeFooter()] },
@@ -55,7 +55,7 @@ function previewFlow(entry: CatalogEntry): FlowJson {
     };
   }
 
-  return { version: '7.3', routing_model: {}, screens: [screen] };
+  return { version: '7.3', data_api_version: '3.0', routing_model: {}, screens: [screen] };
 }
 
 function entryFor(id: string): CatalogEntry {

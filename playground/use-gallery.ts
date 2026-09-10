@@ -81,7 +81,7 @@ export function useGallery(flow: Ref<FlowJson | null>) {
       : parsedSnippet.value;
     if (!current || !snippet) return null;
     if (current.placement === 'screen') {
-      return { version: '7.3', routing_model: {}, screens: [rewireNextTargets(snippet as Screen, 'PREVIEW')] };
+      return { version: '7.3', data_api_version: '3.0', routing_model: {}, screens: [rewireNextTargets(snippet as Screen, 'PREVIEW')] };
     }
     const component = rewireNextTargets(snippet as Component, 'PREVIEW');
     const children: Component[] = [...(current.previewContext ?? []), component];
@@ -89,6 +89,7 @@ export function useGallery(flow: Ref<FlowJson | null>) {
 
     return {
       version: '7.3',
+      data_api_version: '3.0',
       routing_model: {},
       screens: [{ id: 'PREVIEW', title: current.name, terminal: true, data: current.previewData, layout: { type: 'SingleColumnLayout', children } }],
     };

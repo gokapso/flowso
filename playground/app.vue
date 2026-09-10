@@ -154,6 +154,12 @@ function parseSource(value: string) {
 }
 
 const errorCount = computed(() => issues.value.filter((issue) => issue.severity === 'error').length);
+/** Dynamic flows declare data_api_version or use data_exchange; Meta then needs an endpoint and flow_token in the preview URL. */
+const isDynamic = computed(() => {
+  if (!parsed.value) return false;
+
+  return parsed.value.data_api_version !== undefined || JSON.stringify(parsed.value).includes('"data_exchange"');
+});
 const warningCount = computed(() => issues.value.length - errorCount.value);
 
 const diagnostics = computed<Diagnostic[]>(() => {
@@ -353,6 +359,7 @@ onBeforeUnmount(() => eventSource?.close());
             <span :class="errorCount ? 'bad' : 'ok'">{{ errorCount }} errors</span>
             <span>{{ warningCount }} warnings</span>
             <span>version {{ parsed?.version }}</span>
+            <span :title="isDynamic ? 'Uses a data endpoint: configure it (and encryption) before publishing; Meta\'s preview needs flow_token and phone_number.' : 'No data endpoint: navigate and complete only.'">{{ isDynamic ? 'dynamic · needs endpoint' : 'static' }}</span>
           </template>
         </div>
         <JsonEditor v-model="source" :diagnostics="diagnostics" />

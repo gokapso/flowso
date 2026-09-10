@@ -6,7 +6,7 @@ export function screen(children: unknown[] = [], properties: Record<string, unkn
 }
 
 export function flow(properties: Record<string, unknown> = {}) {
-  return { version: '7.3', routing_model: {}, screens: [screen()], ...properties };
+  return { version: '7.3', data_api_version: '3.0', routing_model: {}, screens: [screen()], ...properties };
 }
 
 export function footer(name = 'complete', properties: Record<string, unknown> = {}) {
