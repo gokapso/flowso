@@ -6,7 +6,7 @@ import type { FlowDataEndpoint, FlowDataExchangeRequest, RuntimeEvent, StartOpti
 import { validateFlowJson, type ValidationIssue } from '../src/validator/index';
 import FlowPhone from '../src/vue/flow-phone.vue';
 import type { ScreenEdit } from '../src/vue/edit-types';
-import { moveComponent, removeComponent } from '../src/catalog/edit-component';
+import { moveComponent, moveComponentTo, removeComponent } from '../src/catalog/edit-component';
 import JsonEditor from './json-editor.vue';
 import GalleryList from './gallery-list.vue';
 import GalleryDetail from './gallery-detail.vue';
@@ -141,7 +141,9 @@ function onEdit(edit: ScreenEdit) {
   if (edit.kind === 'select') return;
   const result = edit.kind === 'remove'
     ? removeComponent(parsed.value, edit.screenId, edit.node.path)
-    : moveComponent(parsed.value, edit.screenId, edit.node.path, edit.kind);
+    : edit.kind === 'move'
+      ? moveComponentTo(parsed.value, edit.screenId, edit.node.path, edit.target.path, edit.target.position)
+      : moveComponent(parsed.value, edit.screenId, edit.node.path, edit.kind);
   if (!result.ok) {
     events.value = [...events.value.slice(-199), { type: 'warning', message: result.error }];
 

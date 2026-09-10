@@ -76,3 +76,31 @@ export function replaceComponent(flow: FlowJson, screenId: string, path: string,
     return null;
   });
 }
+
+/**
+ * Move the component at `fromPath` so it lands before or after the component at `toPath`,
+ * possibly in a different container (Form, If branch, Switch case, or the layout itself).
+ */
+export function moveComponentTo(
+  flow: FlowJson,
+  screenId: string,
+  fromPath: string,
+  toPath: string,
+  position: 'before' | 'after',
+): EditResult {
+  if (fromPath === toPath) return { ok: true, flow };
+  if (toPath.startsWith(`${fromPath}.`)) return { ok: false, error: 'Cannot move a component inside itself' };
+
+  return editScreen(flow, screenId, (screen) => {
+    const from = locate(screen, fromPath);
+    const to = locate(screen, toPath);
+    if (!from) return `No component at ${fromPath}`;
+    if (!to) return `No component at ${toPath}`;
+    const [item] = from.list.splice(from.index, 1);
+    let index = to.index + (position === 'after' ? 1 : 0);
+    if (to.list === from.list && from.index < to.index) index -= 1;
+    to.list.splice(index, 0, item as Component);
+
+    return null;
+  });
+}

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import type { Action } from '../schema/flow-json';
 import type { RenderedNode, RenderedScreen } from '../runtime/types';
 import { componentFor } from './component-map';
@@ -22,8 +22,57 @@ const emit = defineEmits<{
   edit: [edit: ScreenEdit];
 }>();
 
-function edit(kind: ScreenEdit['kind'], node: RenderedNode) {
+function edit(kind: 'up' | 'down' | 'remove' | 'select', node: RenderedNode) {
   emit('edit', { kind, node, screenId: props.screen.id });
+}
+
+// Drag and drop (native HTML5) ---------------------------------------------
+const dragging = ref<RenderedNode | null>(null);
+const dropTarget = ref<{ path: string; position: 'before' | 'after' } | null>(null);
+
+function onDragStart(node: RenderedNode, event: DragEvent) {
+  dragging.value = node;
+  event.dataTransfer?.setData('text/plain', node.path);
+  if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+}
+
+function positionFor(node: RenderedNode, event: DragEvent): 'before' | 'after' {
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+
+  return node.type === 'Footer' || event.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+}
+
+function onDragOver(node: RenderedNode, event: DragEvent) {
+  if (!dragging.value || dragging.value.path === node.path) return;
+  event.preventDefault();
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+  dropTarget.value = { path: node.path, position: positionFor(node, event) };
+}
+
+function onDragLeave(node: RenderedNode, event: DragEvent) {
+  // Moving between children of the same wrapper also fires dragleave; only clear when really leaving.
+  const wrapper = event.currentTarget as HTMLElement;
+  if (dropTarget.value?.path === node.path && !wrapper.contains(event.relatedTarget as Node | null)) dropTarget.value = null;
+}
+
+function onDrop(node: RenderedNode, event: DragEvent) {
+  event.preventDefault();
+  const source = dragging.value;
+  dragging.value = null;
+  dropTarget.value = null;
+  if (!source || source.path === node.path) return;
+  emit('edit', { kind: 'move', node: source, screenId: props.screen.id, target: { path: node.path, position: positionFor(node, event) } });
+}
+
+function onDragEnd() {
+  dragging.value = null;
+  dropTarget.value = null;
+}
+
+function dropClass(node: RenderedNode) {
+  if (!dropTarget.value || dropTarget.value.path !== node.path) return null;
+
+  return dropTarget.value.position === 'before' ? 'wa-edit--drop-before' : 'wa-edit--drop-after';
 }
 
 function onAction(action: Action, options?: { validate?: boolean }) {
@@ -40,7 +89,24 @@ function onInput(node: RenderedNode, value: unknown) {
     <div class="wa-screen__body">
       <div v-if="screen.errorMessage" class="wa-screen__error" role="alert">{{ screen.errorMessage }}</div>
       <template v-for="(node, index) in body" :key="`${screen.id}:${node.key}`">
-        <div v-if="editable" class="wa-edit" :data-path="node.path" @click.self="edit('select', node)">
+        <div
+          v-if="editable"
+          class="wa-edit"
+          :class="[dropClass(node), { 'wa-edit--dragging': dragging?.path === node.path }]"
+          :data-path="node.path"
+          @click.self="edit('select', node)"
+          @dragover="onDragOver(node, $event)"
+          @dragleave="onDragLeave(node, $event)"
+          @drop="onDrop(node, $event)"
+        >
+          <span
+            class="wa-edit__grip"
+            draggable="true"
+            title="Drag to reorder"
+            aria-label="Drag to reorder"
+            @dragstart="onDragStart(node, $event)"
+            @dragend="onDragEnd"
+          >⋮⋮</span>
           <component
             :is="componentFor(node.type)"
             :node="node"
@@ -66,7 +132,15 @@ function onInput(node: RenderedNode, value: unknown) {
       </template>
     </div>
     <div class="wa-screen__footer">
-      <div v-if="footer && editable" class="wa-edit" :data-path="footer.path">
+      <div
+        v-if="footer && editable"
+        class="wa-edit"
+        :class="dropClass(footer)"
+        :data-path="footer.path"
+        @dragover="onDragOver(footer, $event)"
+        @dragleave="onDragLeave(footer, $event)"
+        @drop="onDrop(footer, $event)"
+      >
         <FooterButton :node="footer" :disabled="loading || !screen.canSubmit" @action="onAction" />
         <div class="wa-edit__bar" role="toolbar" aria-label="Edit Footer">
           <span class="wa-edit__type">Footer</span>
@@ -90,6 +164,49 @@ function onInput(node: RenderedNode, value: unknown) {
 }
 .wa-edit:hover {
   outline-color: var(--wa-green);
+}
+.wa-edit--dragging {
+  opacity: 0.4;
+}
+.wa-edit::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  right: -4px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--wa-green);
+  opacity: 0;
+  pointer-events: none;
+}
+.wa-edit--drop-before::before {
+  top: -10px;
+  opacity: 1;
+}
+.wa-edit--drop-after::before {
+  bottom: -10px;
+  opacity: 1;
+}
+.wa-edit__grip {
+  position: absolute;
+  left: -18px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: none;
+  width: 14px;
+  line-height: 1;
+  font-size: 12px;
+  letter-spacing: -2px;
+  color: var(--wa-text-muted);
+  cursor: grab;
+  user-select: none;
+  padding: 4px 2px;
+}
+.wa-edit:hover > .wa-edit__grip {
+  display: block;
+}
+.wa-edit__grip:active {
+  cursor: grabbing;
 }
 .wa-edit__bar {
   position: absolute;

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { moveComponent, removeComponent, replaceComponent, parseLayoutPath } from '../../src/catalog/edit-component';
+import { moveComponent, moveComponentTo, removeComponent, replaceComponent, parseLayoutPath } from '../../src/catalog/edit-component';
 import { createFlowRuntime } from '../../src/runtime/runtime';
 import type { FlowJson } from '../../src/schema/flow-json';
 import appointment from '../../fixtures/appointment.flow.json';
@@ -65,5 +65,24 @@ describe('replaceComponent', () => {
   it('swaps the component in place', () => {
     const result = replaceComponent(flow, 'WELCOME', 'children[0]', { type: 'TextBody', text: 'Hi' });
     expect(result.ok && result.flow.screens[0]!.layout.children[0]).toEqual({ type: 'TextBody', text: 'Hi' });
+  });
+});
+
+describe('moveComponentTo (drag and drop)', () => {
+  it('reorders within the same container, before and after', () => {
+    expect(types(moveComponentTo(flow, 'WELCOME', 'children[2].children[0]', 'children[2].children[2]', 'after'))).toEqual(['TextInput', 'RadioButtonsGroup', 'TextInput', 'Footer']);
+    expect(types(moveComponentTo(flow, 'WELCOME', 'children[2].children[2]', 'children[2].children[0]', 'before'))).toEqual(['RadioButtonsGroup', 'TextInput', 'TextInput', 'Footer']);
+  });
+
+  it('moves across containers: out of the Form and into an If branch', () => {
+    const out = moveComponentTo(flow, 'WELCOME', 'children[2].children[0]', 'children[0]', 'after');
+    expect(out.ok && out.flow.screens[0]!.layout.children.map((c) => c.type)).toEqual(['TextHeading', 'TextInput', 'If', 'Form']);
+    const into = moveComponentTo(flow, 'WELCOME', 'children[0]', 'children[1].then[0]', 'before');
+    expect(into.ok && (into.flow.screens[0]!.layout.children[0] as { then: Array<{ type: string }> }).then.map((c) => c.type)).toEqual(['TextHeading', 'TextBody']);
+  });
+
+  it('is a no-op on itself and refuses to nest inside itself', () => {
+    expect(moveComponentTo(flow, 'WELCOME', 'children[0]', 'children[0]', 'after')).toEqual({ ok: true, flow });
+    expect(moveComponentTo(flow, 'WELCOME', 'children[2]', 'children[2].children[0]', 'before')).toEqual({ ok: false, error: 'Cannot move a component inside itself' });
   });
 });
