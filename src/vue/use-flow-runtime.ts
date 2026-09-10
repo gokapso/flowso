@@ -75,6 +75,9 @@ export function useFlowRuntime(flow: Ref<FlowJson | null>, options: UseFlowRunti
   if (options.endpoint && typeof options.endpoint === 'object' && 'value' in options.endpoint) {
     watch(options.endpoint as Ref<FlowDataEndpoint | undefined>, () => void restart());
   }
+  if (options.startOptions && typeof options.startOptions === 'object' && 'value' in options.startOptions) {
+    watch(options.startOptions as Ref<StartOptions>, () => void restart(), { deep: true });
+  }
 
   onBeforeUnmount(() => unsubscribe?.());
 

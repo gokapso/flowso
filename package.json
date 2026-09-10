@@ -97,5 +97,8 @@
     "flow-json",
     "simulator",
     "meta"
-  ]
+  ],
+  "dependencies": {
+    "@kapso/whatsapp-cloud-api": "^0.3.0"
+  }
 }

@@ -6,7 +6,8 @@ import { createEndpointClient } from '../endpoint/client';
 import { EndpointError, type DataExchangeRequest } from '../endpoint/types';
 
 export type SimulatorServerOptions = {
-  flowPath: string;
+  /** Flow file to watch. Omit to serve the playground alone (the browser starts with a new flow). */
+  flowPath?: string;
   staticDir: string;
   port: number;
   host?: string;
@@ -90,7 +91,7 @@ async function serveStatic(response: ServerResponse, staticDir: string, pathname
 }
 
 export function createSimulatorServer(options: SimulatorServerOptions) {
-  const flowPath = resolve(options.flowPath);
+  const flowPath = options.flowPath ? resolve(options.flowPath) : null;
   const clients = new Set<ServerResponse>();
   let watcher: FSWatcher | undefined;
   let debounce: ReturnType<typeof setTimeout> | undefined;
@@ -117,6 +118,7 @@ export function createSimulatorServer(options: SimulatorServerOptions) {
     : { ...endpoint, mode: 'plaintext', ...hooks }) : undefined;
 
   function broadcastFlow(): void {
+    if (!flowPath) return;
     let event: string;
     try {
       event = `event: flow\ndata: ${JSON.stringify({ flow: readFlow(flowPath) })}\n\n`;
@@ -155,11 +157,12 @@ export function createSimulatorServer(options: SimulatorServerOptions) {
       return;
     }
     if (request.method === 'GET' && pathname === '/__sim/flow') {
-      json(response, 200, {
-        fileName: basename(flowPath),
-        flow: readFlow(flowPath),
-        endpoint: endpoint ? { configured: true, mode: endpoint.mode, url: endpoint.url } : { configured: false },
-      });
+      const endpointInfo = endpoint ? { configured: true, mode: endpoint.mode, url: endpoint.url } : { configured: false };
+      if (!flowPath) {
+        json(response, 200, { fileName: null, flow: null, endpoint: endpointInfo });
+        return;
+      }
+      json(response, 200, { fileName: basename(flowPath), flow: readFlow(flowPath), endpoint: endpointInfo });
     } else if (request.method === 'GET' && pathname === '/__sim/events') {
       response.writeHead(200, {
         'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive',
@@ -203,15 +206,17 @@ export function createSimulatorServer(options: SimulatorServerOptions) {
   }
 
   async function start(): Promise<{ url: string }> {
-    if (server.listening || watcher) throw new Error('Simulator server is already started');
+    if (server.listening) throw new Error('Simulator server is already started');
     transport = new AbortController();
     try {
-      watcher = watch(dirname(flowPath), (_event, fileName) => {
-        if (fileName !== null && fileName !== basename(flowPath)) return;
-        clearTimeout(debounce);
-        debounce = setTimeout(broadcastFlow, 100);
-      });
-      watcher.on('error', (error) => options.log?.(`Flow watcher error: ${error.message}`));
+      if (flowPath) {
+        watcher = watch(dirname(flowPath), (_event, fileName) => {
+          if (fileName !== null && fileName !== basename(flowPath)) return;
+          clearTimeout(debounce);
+          debounce = setTimeout(broadcastFlow, 100);
+        });
+        watcher.on('error', (error) => options.log?.(`Flow watcher error: ${error.message}`));
+      }
       await new Promise<void>((done, reject) => {
         server.once('error', reject);
         server.listen(options.port, options.host ?? '127.0.0.1', () => {

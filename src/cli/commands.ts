@@ -11,7 +11,7 @@ export type CliResult = {
 };
 
 const help = `Usage:
-  flowso serve <flow.json> [options]
+  flowso serve [flow.json] [options]     omit the file to start with a new flow in the browser
   flowso validate <flow.json>
   flowso help
 
@@ -65,13 +65,16 @@ async function execute(args: ParsedArgs, log: (line: string) => void): Promise<C
     log(help);
     return { exitCode: 0 };
   }
-  if (args.positional.length !== 1) throw new Error(`${args.command} requires one <flow.json> path`);
-  const flowPath = resolve(args.positional[0]!);
-  const input: unknown = JSON.parse(readFileSync(flowPath, 'utf8'));
-  const result = validateFlowJson(input);
-  for (const issue of result.issues) log(formatIssue(issue));
-  if (args.command === 'validate') {
-    return { exitCode: result.issues.some((issue) => issue.severity === 'error') ? 1 : 0 };
+  if (args.positional.length > 1) throw new Error(`${args.command} accepts at most one <flow.json> path`);
+  if (args.command === 'validate' && args.positional.length !== 1) throw new Error('validate requires one <flow.json> path');
+  const flowPath = args.positional[0] ? resolve(args.positional[0]) : undefined;
+  if (flowPath) {
+    const input: unknown = JSON.parse(readFileSync(flowPath, 'utf8'));
+    const result = validateFlowJson(input);
+    for (const issue of result.issues) log(formatIssue(issue));
+    if (args.command === 'validate') {
+      return { exitCode: result.issues.some((issue) => issue.severity === 'error') ? 1 : 0 };
+    }
   }
   const staticDir = fileURLToPath(new URL('../../dist/playground/', import.meta.url));
   const server = createSimulatorServer({

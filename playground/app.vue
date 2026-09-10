@@ -213,6 +213,35 @@ function loadSample() {
   source.value = JSON.stringify(sample, null, 2);
 }
 
+/** Minimal valid flow to start from scratch. */
+function starterFlow(): FlowJson {
+  return {
+    version: '7.3',
+    screens: [
+      {
+        id: 'WELCOME',
+        title: 'Welcome',
+        terminal: true,
+        layout: {
+          type: 'SingleColumnLayout',
+          children: [
+            { type: 'TextHeading', text: 'Hello' },
+            { type: 'TextBody', text: 'Add components from the gallery.' },
+            { type: 'Footer', label: 'Done', 'on-click-action': { name: 'complete', payload: {} } },
+          ],
+        },
+      },
+    ],
+  };
+}
+
+function newFlow() {
+  if (source.value.trim() && !window.confirm('Replace the current flow with a new one?')) return;
+  source.value = JSON.stringify(starterFlow(), null, 2);
+  flowFileName.value = null;
+  events.value = [];
+}
+
 function loadFile(event: Event) {
   const file = (event.target as HTMLInputElement).files?.[0];
   if (!file) return;
@@ -222,11 +251,15 @@ function loadFile(event: Event) {
 }
 
 function download() {
+  const suggested = flowFileName.value ?? 'flow.json';
+  const name = window.prompt('File name', suggested);
+  if (name === null) return;
+  const fileName = name.trim().replace(/\.json$/i, '') || 'flow';
   const blob = new Blob([source.value], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;
-  anchor.download = flowFileName.value ?? 'flow.json';
+  anchor.download = `${fileName}.json`;
   anchor.click();
   URL.revokeObjectURL(url);
 }
@@ -237,10 +270,16 @@ onMounted(async () => {
   try {
     const response = await fetch('/__sim/flow');
     if (!response.ok) return;
-    const payload = (await response.json()) as { fileName: string; flow: unknown; endpoint?: { configured: boolean } };
+    const payload = (await response.json()) as { fileName: string | null; flow: unknown; endpoint?: { configured: boolean } };
     cliConnected.value = true;
     flowFileName.value = payload.fileName;
     if (payload.endpoint?.configured) endpointMode.value = 'proxy';
+    if (!payload.fileName) {
+      // `flowso serve` without a file: keep whatever the browser had, or start a new flow.
+      if (!localStorage.getItem(STORAGE_KEY)) source.value = JSON.stringify(starterFlow(), null, 2);
+
+      return;
+    }
     // Subscribe before applying the snapshot so a save between the two is not missed; SSE events win.
     eventSource = new EventSource('/__sim/events');
     let receivedEvent = false;
@@ -275,7 +314,7 @@ onBeforeUnmount(() => eventSource?.close());
         <button type="button" class="pg__tab" :class="{ 'pg__tab--active': showGallery }" @click="showGallery = true">Components</button>
       </nav>
       <div class="pg__controls">
-        <span v-if="cliConnected" class="pg__watch"><span class="pg__dot" />{{ flowFileName }}</span>
+        <span v-if="cliConnected && flowFileName" class="pg__watch"><span class="pg__dot" />{{ flowFileName }}</span>
         <label class="pg__select"><span>Start</span><select v-model="startMode"><option value="navigate">navigate</option><option value="data_exchange">data_exchange</option></select></label>
         <label class="pg__select"><span>Platform</span><select v-model="platform"><option value="android">Android</option><option value="ios">iOS</option></select></label>
         <button class="pg__icon-btn" type="button" :title="dark ? 'Light phone' : 'Dark phone'" :aria-pressed="dark" @click="dark = !dark">
@@ -283,6 +322,7 @@ onBeforeUnmount(() => eventSource?.close());
           <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" /></svg>
         </button>
         <span class="pg__sep" />
+        <button class="pg__btn" type="button" @click="newFlow">New</button>
         <button class="pg__btn" type="button" @click="loadSample">Sample</button>
         <label class="pg__btn">Open… <input type="file" accept="application/json" hidden @change="loadFile" /></label>
         <button class="pg__btn" type="button" @click="download">Download</button>
