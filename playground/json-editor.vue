@@ -6,6 +6,7 @@ import { basicSetup } from 'codemirror';
 import { json, jsonParseLinter } from '@codemirror/lang-json';
 import { linter, setDiagnostics, type Diagnostic } from '@codemirror/lint';
 import { indentWithTab } from '@codemirror/commands';
+import { flowsoEditorTheme } from './editor-theme';
 
 const props = defineProps<{ modelValue: string; diagnostics?: Diagnostic[] }>();
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>();
@@ -20,6 +21,7 @@ onMounted(() => {
       doc: props.modelValue,
       extensions: [
         basicSetup,
+        flowsoEditorTheme,
         json(),
         linter(jsonParseLinter()),
         keymap.of([indentWithTab]),

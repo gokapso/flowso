@@ -266,18 +266,31 @@ onBeforeUnmount(() => eventSource?.close());
 
 <template>
   <div class="pg">
-    <div class="pg__bar">
-      <span class="pg__brand">Flowso</span>
-      <span v-if="cliConnected" class="pg__muted">watching {{ flowFileName }}</span>
-      <label>Start <select v-model="startMode"><option value="navigate">navigate (first screen)</option><option value="data_exchange">data_exchange (INIT)</option></select></label>
-      <label>Platform <select v-model="platform"><option value="android">Android</option><option value="ios">iOS</option></select></label>
-      <label><input v-model="dark" type="checkbox" /> Dark</label>
-      <button class="pg__btn" type="button" :class="{ 'pg__btn--active': showGallery }" @click="showGallery = !showGallery">{{ showGallery ? 'Back to editor' : 'Components' }}</button>
-      <button class="pg__btn" type="button" @click="loadSample">Sample</button>
-      <label class="pg__btn">Open… <input type="file" accept="application/json" hidden @change="loadFile" /></label>
-      <button class="pg__btn" type="button" @click="download">Download</button>
-      <button class="pg__btn pg__btn--primary" type="button" @click="restart">Restart</button>
-    </div>
+    <header class="pg__bar">
+      <div class="pg__brand">
+        <span class="pg__logo" aria-hidden="true">F</span>
+        <span class="pg__brand-name">Flowso</span>
+        <span class="pg__brand-sub">WhatsApp Flows emulator</span>
+      </div>
+      <nav class="pg__tabs" aria-label="Mode">
+        <button type="button" class="pg__tab" :class="{ 'pg__tab--active': !showGallery }" @click="showGallery = false">Builder</button>
+        <button type="button" class="pg__tab" :class="{ 'pg__tab--active': showGallery }" @click="showGallery = true">Components</button>
+      </nav>
+      <div class="pg__controls">
+        <span v-if="cliConnected" class="pg__watch"><span class="pg__dot" />{{ flowFileName }}</span>
+        <label class="pg__select"><span>Start</span><select v-model="startMode"><option value="navigate">navigate</option><option value="data_exchange">data_exchange</option></select></label>
+        <label class="pg__select"><span>Platform</span><select v-model="platform"><option value="android">Android</option><option value="ios">iOS</option></select></label>
+        <button class="pg__icon-btn" type="button" :title="dark ? 'Light phone' : 'Dark phone'" :aria-pressed="dark" @click="dark = !dark">
+          <svg v-if="dark" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" /></svg>
+          <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" /></svg>
+        </button>
+        <span class="pg__sep" />
+        <button class="pg__btn" type="button" @click="loadSample">Sample</button>
+        <label class="pg__btn">Open… <input type="file" accept="application/json" hidden @change="loadFile" /></label>
+        <button class="pg__btn" type="button" @click="download">Download</button>
+        <button class="pg__btn pg__btn--primary" type="button" @click="restart">Restart</button>
+      </div>
+    </header>
 
     <div class="pg__main" :style="{ gridTemplateColumns: gridColumns }">
       <div class="pg__editor">

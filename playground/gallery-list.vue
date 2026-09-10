@@ -1,7 +1,19 @@
 <script setup lang="ts">
 import type { GalleryState } from './use-gallery';
+import type { CatalogCategory } from '../src/catalog/component-catalog';
 
 defineProps<{ gallery: GalleryState }>();
+
+const ICONS: Record<CatalogCategory, string> = {
+  text: 'Aa',
+  media: '▣',
+  input: '▭',
+  selection: '◉',
+  datetime: '▦',
+  action: '➜',
+  logic: '⑂',
+  pattern: '▤',
+};
 </script>
 
 <template>
@@ -21,7 +33,8 @@ defineProps<{ gallery: GalleryState }>();
           @mouseenter="gallery.hoveredId.value = item.id"
           @click="gallery.selectedId.value = item.id"
         >
-          {{ item.name }}
+          <span class="gal__icon" :class="`gal__icon--${category.id}`" aria-hidden="true">{{ ICONS[category.id] }}</span>
+          <span class="gal__label">{{ item.name }}</span>
           <span
             class="gal__version"
             :class="{ 'gal__version--unsupported': gallery.needsNewerVersion(item) }"
