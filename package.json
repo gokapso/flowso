@@ -1,0 +1,96 @@
+{
+  "name": "@kapso/whatsapp-flows-simulator",
+  "version": "0.1.0",
+  "description": "Local WhatsApp Flows simulator: Flow JSON runtime, validator, Meta-compatible endpoint client and Vue renderer",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./schema": {
+      "types": "./dist/schema/index.d.ts",
+      "import": "./dist/schema.js"
+    },
+    "./runtime": {
+      "types": "./dist/runtime/index.d.ts",
+      "import": "./dist/runtime.js"
+    },
+    "./validator": {
+      "types": "./dist/validator/index.d.ts",
+      "import": "./dist/validator.js"
+    },
+    "./endpoint": {
+      "types": "./dist/endpoint/index.d.ts",
+      "import": "./dist/endpoint.js"
+    },
+    "./vue": {
+      "types": "./dist/vue/index.d.ts",
+      "import": "./dist/vue.js"
+    },
+    "./vue/theme.css": "./dist/vue/theme.css",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "playground": "vite --config playground/vite.config.ts",
+    "build:playground": "vite build --config playground/vite.config.ts",
+    "typecheck:vue": "vue-tsc --noEmit -p tsconfig.json",
+    "build": "bun run build:lib && bun run build:types && bun run build:playground",
+    "build:lib": "vite build --config vite.lib.config.ts",
+    "build:types": "vue-tsc --declaration --emitDeclarationOnly -p tsconfig.build.json",
+    "cli": "bun src/cli/main.ts",
+    "prepublishOnly": "bun run test && bun run build"
+  },
+  "peerDependencies": {
+    "vue": "^3.5.0"
+  },
+  "peerDependenciesMeta": {
+    "vue": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@codemirror/lang-json": "^6.0.1",
+    "@codemirror/lint": "^6.8.0",
+    "@codemirror/state": "^6.5.0",
+    "@codemirror/view": "^6.36.0",
+    "@types/node": "^22.0.0",
+    "@vitejs/plugin-vue": "^5.2.0",
+    "@vue/test-utils": "^2.4.6",
+    "codemirror": "^6.0.1",
+    "happy-dom": "^17.0.0",
+    "typescript": "~5.8.3",
+    "vite": "^6.4.0",
+    "vitest": "^3.2.0",
+    "vue": "^3.5.13",
+    "vue-tsc": "^2.2.0"
+  },
+  "bin": {
+    "whatsapp-flows-sim": "./dist/cli/main.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gokapso/whatsapp-flows-simulator"
+  },
+  "keywords": [
+    "whatsapp",
+    "whatsapp-flows",
+    "flow-json",
+    "simulator",
+    "meta"
+  ]
+}

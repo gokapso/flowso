@@ -1,0 +1,34 @@
+.wa-flow {
+  --wa-green: #00a884;
+  --wa-green-dark: #008069;
+  --wa-bg: #ffffff;
+  --wa-bg-muted: #f0f2f5;
+  --wa-text: #111b21;
+  --wa-text-muted: #667781;
+  --wa-border: #e9edef;
+  --wa-error: #d32f2f;
+  --wa-header: #008069;
+  --wa-header-text: #ffffff;
+  --wa-radius: 8px;
+  --wa-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-family: var(--wa-font);
+  color: var(--wa-text);
+  background: var(--wa-bg);
+  box-sizing: border-box;
+}
+
+.wa-flow *,
+.wa-flow *::before,
+.wa-flow *::after {
+  box-sizing: inherit;
+}
+
+.wa-flow.wa-dark {
+  --wa-bg: #111b21;
+  --wa-bg-muted: #202c33;
+  --wa-text: #e9edef;
+  --wa-text-muted: #8696a0;
+  --wa-border: #2a3942;
+  --wa-header: #202c33;
+  --wa-header-text: #e9edef;
+}

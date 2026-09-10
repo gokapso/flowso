@@ -1,0 +1,118 @@
+{
+  "version": "7.3",
+  "data_api_version": "3.0",
+  "routing_model": {
+    "WELCOME": ["DETAILS"],
+    "DETAILS": ["CONFIRM"],
+    "CONFIRM": []
+  },
+  "screens": [
+    {
+      "id": "WELCOME",
+      "title": "Book an appointment",
+      "data": {
+        "business_name": { "type": "string", "__example__": "Kapso Dental" },
+        "show_promo": { "type": "boolean", "__example__": true }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextHeading", "text": "`'Welcome to ' ${data.business_name}`" },
+          {
+            "type": "If",
+            "condition": "${data.show_promo}",
+            "then": [{ "type": "TextBody", "text": "10% off your first visit" }],
+            "else": [{ "type": "TextBody", "text": "Book your visit" }]
+          },
+          {
+            "type": "Form",
+            "name": "welcome_form",
+            "init-values": { "first_name": "Ana" },
+            "children": [
+              { "type": "TextInput", "name": "first_name", "label": "First name", "required": true, "min-chars": 2 },
+              { "type": "TextInput", "name": "email", "label": "Email", "input-type": "email", "required": true },
+              {
+                "type": "RadioButtonsGroup",
+                "name": "service",
+                "label": "Service",
+                "required": true,
+                "data-source": [
+                  { "id": "cleaning", "title": "Cleaning" },
+                  { "id": "whitening", "title": "Whitening" }
+                ],
+                "on-select-action": { "name": "update_data", "payload": { "show_promo": false } }
+              },
+              {
+                "type": "Footer",
+                "label": "Continue",
+                "on-click-action": {
+                  "name": "navigate",
+                  "next": { "type": "screen", "name": "DETAILS" },
+                  "payload": { "first_name": "${form.first_name}", "service": "${form.service}", "email": "${form.email}" }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "DETAILS",
+      "title": "Pick a slot",
+      "data": {
+        "first_name": { "type": "string", "__example__": "Example" },
+        "service": { "type": "string", "__example__": "cleaning" },
+        "email": { "type": "string", "__example__": "x@y.z" },
+        "slots": {
+          "type": "array",
+          "items": { "type": "object", "properties": { "id": { "type": "string" }, "title": { "type": "string" } } },
+          "__example__": [{ "id": "s1", "title": "Mon 10:00" }]
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextSubheading", "text": "`'Hi ' ${data.first_name}`" },
+          {
+            "type": "Switch",
+            "value": "${data.service}",
+            "cases": {
+              "cleaning": [{ "type": "TextCaption", "text": "Cleaning takes 30 minutes" }],
+              "whitening": [{ "type": "TextCaption", "text": "Whitening takes 60 minutes" }]
+            }
+          },
+          { "type": "Dropdown", "name": "slot", "label": "Slot", "required": true, "data-source": "${data.slots}" },
+          {
+            "type": "Footer",
+            "label": "Book",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": { "slot": "${form.slot}", "email": "${screen.WELCOME.form.email}" }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "CONFIRM",
+      "title": "Confirmed",
+      "terminal": true,
+      "success": true,
+      "data": {
+        "confirmation_code": { "type": "string", "__example__": "ABC123" }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextHeading", "text": "You are booked" },
+          { "type": "TextBody", "text": "`'Code: ' ${data.confirmation_code}`" },
+          {
+            "type": "Footer",
+            "label": "Done",
+            "on-click-action": { "name": "complete", "payload": { "confirmation_code": "${data.confirmation_code}" } }
+          }
+        ]
+      }
+    }
+  ]
+}
