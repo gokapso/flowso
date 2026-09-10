@@ -22,6 +22,13 @@ const emit = defineEmits<{
   edit: [edit: ScreenEdit];
 }>();
 
+/** Components with no click or typing behaviour: the whole card is the drag handle. */
+const STATIC_TYPES = new Set(['TextHeading', 'TextSubheading', 'TextBody', 'TextCaption', 'RichText', 'Image', 'ImageCarousel']);
+
+function isStatic(node: RenderedNode): boolean {
+  return STATIC_TYPES.has(node.type);
+}
+
 function edit(kind: 'up' | 'down' | 'remove' | 'select', node: RenderedNode) {
   emit('edit', { kind, node, screenId: props.screen.id });
 }
@@ -92,21 +99,17 @@ function onInput(node: RenderedNode, value: unknown) {
         <div
           v-if="editable"
           class="wa-edit"
-          :class="[dropClass(node), { 'wa-edit--dragging': dragging?.path === node.path }]"
+          :class="[dropClass(node), { 'wa-edit--dragging': dragging?.path === node.path, 'wa-edit--grab': isStatic(node) }]"
           :data-path="node.path"
+          :draggable="isStatic(node)"
+          :title="isStatic(node) ? 'Drag to reorder' : undefined"
           @click.self="edit('select', node)"
+          @dragstart="isStatic(node) && onDragStart(node, $event)"
+          @dragend="onDragEnd"
           @dragover="onDragOver(node, $event)"
           @dragleave="onDragLeave(node, $event)"
           @drop="onDrop(node, $event)"
         >
-          <span
-            class="wa-edit__grip"
-            draggable="true"
-            title="Drag to reorder"
-            aria-label="Drag to reorder"
-            @dragstart="onDragStart(node, $event)"
-            @dragend="onDragEnd"
-          ><span class="wa-edit__grip-dots" aria-hidden="true">⋮⋮</span></span>
           <component
             :is="componentFor(node.type)"
             :node="node"
@@ -194,34 +197,7 @@ function onInput(node: RenderedNode, value: unknown) {
   bottom: -10px;
   opacity: 1;
 }
-.wa-edit__grip {
-  position: absolute;
-  left: -14px;
-  top: -4px;
-  bottom: -4px;
-  width: 14px;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px 0 0 4px;
-  background: var(--wa-green);
-  color: #fff;
-  cursor: grab;
-  user-select: none;
-  z-index: 1;
-}
-.wa-edit:hover > .wa-edit__grip {
-  display: flex;
-}
-.wa-edit__grip:active {
-  cursor: grabbing;
-}
-.wa-edit__grip-dots {
-  font-size: 11px;
-  line-height: 1;
-  letter-spacing: -2px;
-}
-.wa-edit__btn--grip {
+.wa-edit:hover > .wa-edit__btn--grip {
   display: inline-flex;
   align-items: center;
   justify-content: center;
