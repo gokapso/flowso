@@ -106,7 +106,7 @@ describe('createFlowRuntime', () => {
       expect(state.screenData.DETAILS).toMatchObject({ first_name: 'Ana', service: 'cleaning', email: 'ana@example.com' });
       expect(texts(runtime)).toEqual(['Hi Ana', 'Cleaning takes 30 minutes']);
       const dropdown = runtime.render()?.children.find((n) => n.name === 'slot');
-      expect(dropdown?.props['data-source']).toEqual([{ id: 's1', title: 'Mon 10:00' }]);
+      expect(dropdown?.props['data-source']).toEqual([{ id: 's1', title: 'Mon 10:00' }, { id: 's2', title: 'Tue 11:30' }]);
     });
 
     it('rejects routes not in routing_model', async () => {

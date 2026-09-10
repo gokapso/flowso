@@ -23,6 +23,17 @@ export const validateRouting: Rule = (context) => {
       const target = action.next.name;
       if (!ids.has(target)) addIssue(context, 'INVALID_SCREEN_REFERENCE', `${path}.next.name`, `Unknown screen ${target}`);
       else incoming.add(target);
+      // Meta: a navigate payload must provide every field declared in the target screen's data model.
+      const targetScreen = context.screens.find((entry) => entry.value.id === target);
+      const declared = targetScreen && isObject(targetScreen.value.data) ? Object.keys(targetScreen.value.data) : [];
+      if (declared.length > 0) {
+        const payloadKeys = isObject(action.payload) ? Object.keys(action.payload) : [];
+        const missing = declared.filter((key) => !payloadKeys.includes(key));
+        if (missing.length > 0) {
+          addIssue(context, 'MISSING_PAYLOAD_DATA', `${path}.payload`,
+            `Following fields are expected in the next screen's data model but missing in payload: [${missing.join(', ')}]`);
+        }
+      }
       if (Object.keys(routing).length > 0) {
         const targets = isString(screen.value.id) && Object.hasOwn(routing, screen.value.id) ? routing[screen.value.id] : undefined;
         if (!Array.isArray(targets) || !targets.includes(target)) {
