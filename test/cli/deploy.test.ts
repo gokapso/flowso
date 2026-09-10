@@ -163,6 +163,23 @@ describe('deployFlow', () => {
 });
 
 describe('CLI deploy and SDK wire upload', () => {
+  it.each([false, true])('shares local validation with Kapso; skipLocalValidation=%s', async (skipLocalValidation) => {
+    const flowPath = join(directory, 'invalid.json');
+    await writeFile(flowPath, '{}');
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(Response.json({ data: { id: 'kapso-uuid' } }));
+    const log = vi.fn();
+    expect(await deployFlow({ flowPath, to: 'kapso', kapsoKey: 'kapso-key', phoneNumberId: 'phone-123', skipLocalValidation, log }, { fetch }))
+      .toEqual({ exitCode: skipLocalValidation ? 0 : 1 });
+    for (const issue of validateFlowJson({}).issues) expect(log).toHaveBeenCalledWith(formatIssue(issue));
+    expect(fetch).toHaveBeenCalledTimes(skipLocalValidation ? 1 : 0);
+  });
+
+  it.each(['other', ''])('rejects invalid deploy targets: %s', async (target) => {
+    const fetch = mockHttp();
+    expect(await runCli(['deploy', fixturePath, `--to=${target}`], vi.fn())).toEqual({ exitCode: 1 });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it.each(['publish', 'preview', 'no-preview', 'skip-local-validation'])('parses --%s without consuming the path', (flag) => {
     expect(parseArgs(['deploy', `--${flag}`, fixturePath])).toEqual({
       command: 'deploy', positional: [fixturePath], flags: { [flag]: true },

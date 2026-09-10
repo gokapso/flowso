@@ -62,6 +62,48 @@ The completion screen shows exactly what WhatsApp sends back to your business in
 it rendered by the real runtime, edit its JSON by hand, and insert it into a screen of your flow
 (inside the Form when there is one, before the Footer, with duplicate input names renamed).
 
+## Ship it to Meta
+
+You need two things from Meta: the **WABA ID** of your WhatsApp Business Account and an
+**access token** that can manage it. No Kapso account is required.
+
+1. Create an app at [developers.facebook.com](https://developers.facebook.com/apps) (type
+   *Business*) and add the **WhatsApp** product. The app does not need to be published.
+2. In [Business Manager](https://business.facebook.com/settings) go to *Users → System users*,
+   create a system user, click *Add assets*, and give it full control of your WhatsApp account and
+   your app.
+3. Click *Generate new token*, pick the app, choose *never expires* for development, and tick
+   `whatsapp_business_management` and `whatsapp_business_messaging`.
+4. Copy the WABA ID from *Accounts → WhatsApp accounts*, and the phone number ID from the WhatsApp
+   product page of your app (or from the API: `GET /{WABA_ID}/phone_numbers`).
+
+Then, from the folder with your flow:
+
+```bash
+export WHATSAPP_ACCESS_TOKEN=EAAG...
+export WHATSAPP_WABA_ID=1234567890
+
+npx flowso validate my-flow.json                  # what Meta would reject, before uploading
+npx flowso deploy my-flow.json --name my-flow     # draft on Meta + interactive preview URL
+npx flowso deploy my-flow.json --flow-id <FLOW_ID> --publish   # iterate, then publish
+npx flowso send --to-number +15551234567 --flow-id <FLOW_ID> --phone-number-id <PHONE_ID> --draft
+```
+
+`deploy` uploads the JSON unchanged, prints Meta's validation errors with their JSON paths, and
+returns a preview URL you can open or share. `send` delivers the flow to a phone as a WhatsApp
+message; use `--draft` until the flow is published. Flows with a data endpoint also need
+`--endpoint-uri` and the encryption key registered on the phone number.
+
+### Deploying through Kapso instead
+
+If your number is connected to [Kapso](https://kapso.ai), `flowso deploy --to kapso` uses your
+project API key and the flow shows up in the Kapso dashboard with its versions and preview:
+
+```bash
+export KAPSO_API_KEY=...
+npx flowso deploy my-flow.json --to kapso --phone-number-id <PHONE_ID> --name my-flow
+```
+
 ## Use the runtime in your own code
 
 ```ts

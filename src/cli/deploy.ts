@@ -2,12 +2,17 @@ import { readFileSync } from 'node:fs';
 import { basename, extname } from 'node:path';
 import { WhatsAppClient, type CreateFlowResponse, type FlowValidationError } from '@kapso/whatsapp-cloud-api';
 import { formatIssue, validateFlowJson } from '../validator/index';
+import { deployToKapso } from './kapso';
 
 type Deploy = WhatsAppClient['flows']['deploy'];
 type DeployClient = { flows: { deploy: Deploy } };
 
 export type DeployOptions = {
   flowPath: string;
+  to?: 'meta' | 'kapso';
+  kapsoKey?: string;
+  kapsoUrl?: string;
+  phoneNumberId?: string;
   token?: string;
   wabaId?: string;
   name?: string;
@@ -75,17 +80,27 @@ function formatMetaError(error: FlowValidationError): string {
 
 export async function deployFlow(
   options: DeployOptions,
-  deps: { createClient?: (token: string) => DeployClient } = {},
+  deps: { createClient?: (token: string) => DeployClient; fetch?: typeof globalThis.fetch } = {},
 ): Promise<{ exitCode: number }> {
   const token = options.token ?? process.env.WHATSAPP_ACCESS_TOKEN;
+  const kapsoKey = options.kapsoKey ?? process.env.KAPSO_API_KEY;
   const log = (line: string): void => {
     // SDK/network errors and validation messages may echo request values.
-    (options.log ?? console.log)(token ? line.split(token).join('[REDACTED]') : line);
+    for (const secret of [token, kapsoKey]) if (secret) line = line.split(secret).join('[REDACTED]');
+    (options.log ?? console.log)(line);
   };
   try {
-    if (!token?.trim()) throw new Error('Access token required: use --token or WHATSAPP_ACCESS_TOKEN');
+    const target = options.to ?? 'meta';
+    if (target !== 'meta' && target !== 'kapso') throw new Error('--to must be meta or kapso');
     const wabaId = options.wabaId ?? process.env.WHATSAPP_WABA_ID;
-    if (!wabaId?.trim()) throw new Error('WABA ID required: use --waba or WHATSAPP_WABA_ID');
+    const phoneNumberId = options.phoneNumberId ?? process.env.WHATSAPP_PHONE_NUMBER_ID;
+    if (target === 'kapso') {
+      if (!kapsoKey?.trim()) throw new Error('Kapso API key required: use --kapso-key or KAPSO_API_KEY');
+      if (!phoneNumberId?.trim()) throw new Error('Phone number ID required: use --phone-number-id or WHATSAPP_PHONE_NUMBER_ID');
+    } else {
+      if (!token?.trim()) throw new Error('Access token required: use --token or WHATSAPP_ACCESS_TOKEN');
+      if (!wabaId?.trim()) throw new Error('WABA ID required: use --waba or WHATSAPP_WABA_ID');
+    }
     const flowJson: unknown = JSON.parse(readFileSync(options.flowPath, 'utf8'));
     const validation = validateFlowJson(flowJson);
     for (const issue of validation.issues) log(formatIssue(issue));
@@ -93,9 +108,16 @@ export async function deployFlow(
       log('Error: Local validation failed. Fix the errors or use --skip-local-validation to upload anyway.');
       return { exitCode: 1 };
     }
-    const client = (deps.createClient ?? createWireClient)(token);
+    if (target === 'kapso') {
+      return await deployToKapso({
+        apiKey: kapsoKey!, baseUrl: options.kapsoUrl ?? process.env.KAPSO_API_URL,
+        phoneNumberId: phoneNumberId!, name: options.name ?? basename(options.flowPath, extname(options.flowPath)),
+        flowId: options.flowId, publish: options.publish, flowJson, log,
+      }, deps);
+    }
+    const client = (deps.createClient ?? createWireClient)(token!);
     const result = await client.flows.deploy(flowJson as Record<string, unknown>, {
-      wabaId,
+      wabaId: wabaId!,
       name: options.name ?? basename(options.flowPath, extname(options.flowPath)),
       flowId: options.flowId,
       publish: options.publish ?? false,

@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { formatIssue, validateFlowJson } from '../validator/index';
 import { parseArgs, type ParsedArgs } from './args';
 import { deployFlow } from './deploy';
+import { sendFlow } from './send';
 import { createSimulatorServer, type SimulatorServerOptions } from './server';
 
 export type CliResult = {
@@ -15,19 +16,38 @@ const help = `Usage:
   flowso serve [flow.json] [options]     omit the file to start with a new flow in the browser
   flowso validate <flow.json>
   flowso deploy <flow.json> [options]
+  flowso send --to-number <E.164> --flow-id <meta flow id> --phone-number-id <id> [options]
   flowso help
 
 Deploy options:
-  --waba <id>           Required (or WHATSAPP_WABA_ID)
-  --token <token>       Required (or WHATSAPP_ACCESS_TOKEN)
+  --to <meta|kapso>     Deployment target (default: meta)
+  --waba <id>           Required for meta (or WHATSAPP_WABA_ID)
+  --token <token>       Required for meta (or WHATSAPP_ACCESS_TOKEN)
+  --kapso-key <key>     Required for kapso (or KAPSO_API_KEY)
+  --kapso-url <url>     Kapso base URL (or KAPSO_API_URL; default: https://api.kapso.ai/platform/v1)
+  --phone-number-id <id>  Required for kapso (or WHATSAPP_PHONE_NUMBER_ID)
   --name <name>         Flow name (default: file name without extension)
-  --flow-id <id>        Update an existing draft
+  --flow-id <id>        Update an existing draft (Meta ID for meta; Kapso UUID for kapso)
   --publish            Publish after uploading
   --endpoint-uri <url>  Data exchange endpoint URI
   --categories <a,b>    Comma-separated categories
   --preview            Fetch an interactive preview URL (default)
   --no-preview         Disable preview
   --skip-local-validation  Upload despite local validation errors
+
+Send options:
+  --to-number <E.164>   Recipient phone number (required)
+  --flow-id <id>        Meta flow ID (required)
+  --phone-number-id <id>  Sender phone number ID (required)
+  --token <token>       Required (or WHATSAPP_ACCESS_TOKEN)
+  --draft              Send a draft flow (default: published)
+  --body <text>        Message body (default: Test flow from flowso)
+  --cta <label>        Button label (default: Open)
+  --header <text>      Text header
+  --footer <text>      Footer text
+  --screen <SCREEN_ID>  Navigate to a screen (default: data_exchange)
+  --data <json>        Initial data object (requires --screen)
+                       A random flowso_ flow token is generated for each send
 
 Serve options:
   --endpoint <url>       Data exchange endpoint
@@ -79,13 +99,27 @@ async function execute(args: ParsedArgs, log: (line: string) => void): Promise<C
     log(help);
     return { exitCode: 0 };
   }
+  if (args.command === 'send') {
+    if (args.positional.length) throw new Error('send does not accept a <flow.json> path');
+    return sendFlow({
+      toNumber: textFlag(args, 'to-number'), flowId: textFlag(args, 'flow-id'),
+      phoneNumberId: textFlag(args, 'phone-number-id'), token: textFlag(args, 'token'),
+      draft: args.flags.draft === true, body: textFlag(args, 'body'), cta: textFlag(args, 'cta'),
+      header: textFlag(args, 'header'), footer: textFlag(args, 'footer'),
+      screen: textFlag(args, 'screen'), data: textFlag(args, 'data'), log,
+    });
+  }
   if (args.positional.length > 1) throw new Error(`${args.command} accepts at most one <flow.json> path`);
   if (args.command === 'validate' && args.positional.length !== 1) throw new Error('validate requires one <flow.json> path');
   const flowPath = args.positional[0] ? resolve(args.positional[0]) : undefined;
   if (args.command === 'deploy') {
     if (!flowPath) throw new Error('deploy requires one <flow.json> path');
+    const to = textFlag(args, 'to') ?? 'meta';
+    if (to !== 'meta' && to !== 'kapso') throw new Error('--to must be meta or kapso');
     return deployFlow({
       flowPath, log,
+      to, kapsoKey: textFlag(args, 'kapso-key'), kapsoUrl: textFlag(args, 'kapso-url'),
+      phoneNumberId: textFlag(args, 'phone-number-id'),
       wabaId: textFlag(args, 'waba'),
       token: textFlag(args, 'token'),
       name: textFlag(args, 'name'),
