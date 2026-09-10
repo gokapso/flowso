@@ -84,3 +84,6 @@ body {
 .pg__phone { grid-column: 3; }
 .pg__handle--right { grid-column: 4; }
 .pg__side { grid-column: 5; }
+.gal-list__hint { padding: 0 12px 6px; font-size: 11px; color: #667781; }
+.gal__item--peek:not(.gal__item--active) { background: #f0f2f5; }
+.gal__version--unsupported { color: #b26a00; background: #fff3e0; padding: 1px 6px; border-radius: 8px; }

@@ -35,7 +35,7 @@ function onGalleryInsert(flow: FlowJson, path: string) {
 
 /** The phone renders the gallery preview while the gallery is open; it never moves. */
 const phoneFlow = computed(() => (showGallery.value ? gallery.previewFlow.value : parsed.value));
-const phoneKey = computed(() => (showGallery.value ? `gallery:${gallery.selectedId.value}` : 'flow'));
+const phoneKey = computed(() => (showGallery.value ? `gallery:${gallery.previewId.value}` : 'flow'));
 
 // Layout: collapsible and resizable side columns ------------------------------
 const LAYOUT_KEY = 'flowso:layout';

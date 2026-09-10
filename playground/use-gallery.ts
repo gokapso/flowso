@@ -2,19 +2,33 @@ import { computed, ref, watch, type Ref } from 'vue';
 import type { FlowJson, Component, Screen } from '../src/schema/flow-json';
 import { COMPONENT_CATALOG, CATALOG_CATEGORIES } from '../src/catalog/component-catalog';
 import { insertComponent, insertScreen, rewireNextTargets } from '../src/catalog/insert-component';
+import { compareVersions } from '../src/schema/versions';
+import type { CatalogEntry } from '../src/catalog/component-catalog';
 import { validateFlowJson } from '../src/validator/index';
 
 /** Gallery state shared by the list (left column) and the detail panel (right column). */
 export function useGallery(flow: Ref<FlowJson | null>) {
   const search = ref('');
   const selectedId = ref(COMPONENT_CATALOG[0]?.id ?? '');
+  /** Entry under the mouse in the list: the phone peeks at it until the pointer leaves. */
+  const hoveredId = ref<string | null>(null);
   const targetScreen = ref('');
   const snippetSource = ref('');
   const snippetError = ref<string | null>(null);
   const message = ref<string | null>(null);
 
   const entry = computed(() => COMPONENT_CATALOG.find((item) => item.id === selectedId.value) ?? null);
+  const hoveredEntry = computed(() => (hoveredId.value ? COMPONENT_CATALOG.find((item) => item.id === hoveredId.value) ?? null : null));
+  /** What the phone shows: the hovered entry (peek) or the selected one. */
+  const previewEntry = computed(() => hoveredEntry.value ?? entry.value);
+  const previewId = computed(() => previewEntry.value?.id ?? '');
   const screens = computed(() => flow.value?.screens ?? []);
+  const flowVersion = computed(() => flow.value?.version ?? null);
+
+  /** True when the current flow's version is older than what the entry needs. */
+  function needsNewerVersion(item: CatalogEntry): boolean {
+    return flowVersion.value !== null && compareVersions(flowVersion.value, item.minVersion) < 0;
+  }
 
   const grouped = computed(() => {
     const term = search.value.trim().toLowerCase();
@@ -60,8 +74,11 @@ export function useGallery(flow: Ref<FlowJson | null>) {
 
   /** One-screen flow around the snippet so the real runtime renders it in the same phone. */
   const previewFlow = computed<FlowJson | null>(() => {
-    const current = entry.value;
-    const snippet = parsedSnippet.value;
+    const current = previewEntry.value;
+    const peeking = hoveredEntry.value !== null && hoveredEntry.value.id !== entry.value?.id;
+    const snippet: Component | Screen | null = peeking
+      ? (current?.placement === 'screen' ? current.screen ?? null : current?.component ?? null)
+      : parsedSnippet.value;
     if (!current || !snippet) return null;
     if (current.placement === 'screen') {
       return { version: '7.3', routing_model: {}, screens: [rewireNextTargets(snippet as Screen, 'PREVIEW')] };
@@ -102,7 +119,7 @@ export function useGallery(flow: Ref<FlowJson | null>) {
     return { flow: result.flow, path: result.path };
   }
 
-  return { search, selectedId, targetScreen, snippetSource, snippetError, message, entry, screens, grouped, parsedSnippet, previewFlow, previewIssues, copyJson, insert };
+  return { search, selectedId, hoveredId, previewId, needsNewerVersion, flowVersion, targetScreen, snippetSource, snippetError, message, entry, screens, grouped, parsedSnippet, previewFlow, previewIssues, copyJson, insert };
 }
 
 export type GalleryState = ReturnType<typeof useGallery>;
