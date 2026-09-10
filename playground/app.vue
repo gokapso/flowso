@@ -39,15 +39,14 @@ const phoneKey = computed(() => (showGallery.value ? `gallery:${gallery.selected
 
 // Layout: collapsible and resizable side columns ------------------------------
 const LAYOUT_KEY = 'flowso:layout';
-type Layout = { left: number; right: number; leftOpen: boolean; rightOpen: boolean };
-const layout = ref<Layout>({ left: 560, right: 340, leftOpen: true, rightOpen: true, ...JSON.parse(localStorage.getItem(LAYOUT_KEY) ?? '{}') });
+type Layout = { left: number; right: number; rightOpen: boolean };
+const layout = ref<Layout>({ left: 560, right: 340, rightOpen: true, ...JSON.parse(localStorage.getItem(LAYOUT_KEY) ?? '{}') });
 watch(layout, (value) => localStorage.setItem(LAYOUT_KEY, JSON.stringify(value)), { deep: true });
 
 const gridColumns = computed(() => {
-  const left = layout.value.leftOpen ? `minmax(280px, ${layout.value.left}px)` : '0px';
-  const right = layout.value.rightOpen ? `${layout.value.right}px` : '0px';
+  const right = layout.value.rightOpen ? `${layout.value.right}px` : '44px';
 
-  return `${left} 6px minmax(420px, 1fr) 6px ${right}`;
+  return `minmax(280px, ${layout.value.left}px) 8px minmax(420px, 1fr) 8px ${right}`;
 });
 
 function startResize(side: 'left' | 'right', event: PointerEvent) {
@@ -274,8 +273,6 @@ onBeforeUnmount(() => eventSource?.close());
       <label>Platform <select v-model="platform"><option value="android">Android</option><option value="ios">iOS</option></select></label>
       <label><input v-model="dark" type="checkbox" /> Dark</label>
       <button class="pg__btn" type="button" :class="{ 'pg__btn--active': showGallery }" @click="showGallery = !showGallery">{{ showGallery ? 'Back to editor' : 'Components' }}</button>
-      <button class="pg__btn pg__btn--icon" type="button" :title="layout.leftOpen ? 'Collapse left panel' : 'Expand left panel'" @click="layout.leftOpen = !layout.leftOpen">{{ layout.leftOpen ? '⇤' : '⇥' }}</button>
-      <button class="pg__btn pg__btn--icon" type="button" :title="layout.rightOpen ? 'Collapse right panel' : 'Expand right panel'" @click="layout.rightOpen = !layout.rightOpen">{{ layout.rightOpen ? '⇥' : '⇤' }}</button>
       <button class="pg__btn" type="button" @click="loadSample">Sample</button>
       <label class="pg__btn">Open… <input type="file" accept="application/json" hidden @change="loadFile" /></label>
       <button class="pg__btn" type="button" @click="download">Download</button>
@@ -283,7 +280,7 @@ onBeforeUnmount(() => eventSource?.close());
     </div>
 
     <div class="pg__main" :style="{ gridTemplateColumns: gridColumns }">
-      <div v-show="layout.leftOpen" class="pg__editor">
+      <div class="pg__editor">
         <GalleryList v-if="showGallery" :gallery="gallery" />
         <template v-else>
         <div class="pg__editor-status">
@@ -297,7 +294,7 @@ onBeforeUnmount(() => eventSource?.close());
         <JsonEditor v-model="source" :diagnostics="diagnostics" />
         </template>
       </div>
-      <div class="pg__handle pg__handle--left" :class="{ 'pg__handle--off': !layout.leftOpen }" @pointerdown="startResize('left', $event)" />
+      <div class="pg__handle pg__handle--left" @pointerdown="startResize('left', $event)" />
 
       <div class="pg__phone">
         <FlowPhone
@@ -313,9 +310,19 @@ onBeforeUnmount(() => eventSource?.close());
         />
       </div>
 
-      <div class="pg__handle pg__handle--right" :class="{ 'pg__handle--off': !layout.rightOpen }" @pointerdown="startResize('right', $event)" />
-      <div v-show="layout.rightOpen" class="pg__side">
-        <GalleryDetail v-if="showGallery" :gallery="gallery" :has-flow="!!parsed" @insert="onGalleryInsert" />
+      <div class="pg__handle pg__handle--right" :class="{ 'pg__handle--off': !layout.rightOpen }" @pointerdown="layout.rightOpen && startResize('right', $event)" />
+      <div class="pg__side" :class="{ 'pg__side--collapsed': !layout.rightOpen }">
+        <div class="pg__side-head">
+          <span v-if="layout.rightOpen" class="pg__side-title">{{ showGallery ? 'Component' : 'Inspector' }}</span>
+          <button class="pg__icon-btn" type="button" :title="layout.rightOpen ? 'Collapse sidebar' : 'Expand sidebar'" :aria-expanded="layout.rightOpen" @click="layout.rightOpen = !layout.rightOpen">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect width="18" height="18" x="3" y="3" rx="2" />
+              <path d="M15 3v18" />
+            </svg>
+          </button>
+        </div>
+        <template v-if="!layout.rightOpen" />
+        <GalleryDetail v-else-if="showGallery" :gallery="gallery" :has-flow="!!parsed" @insert="onGalleryInsert" />
         <template v-else>
         <div class="pg__section">
           <h3>Endpoint</h3>
