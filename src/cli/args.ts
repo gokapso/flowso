@@ -1,17 +1,17 @@
 export type ParsedArgs = {
-  command: 'serve' | 'validate' | 'help';
+  command: 'serve' | 'validate' | 'deploy' | 'help';
   positional: string[];
   flags: Record<string, string | boolean>;
 };
 
-const booleanFlags = new Set(['plaintext', 'open', 'help']);
+const booleanFlags = new Set(['plaintext', 'open', 'help', 'publish', 'preview', 'no-preview', 'skip-local-validation']);
 
 export function parseArgs(argv: string[]): ParsedArgs {
   const result: ParsedArgs = { command: 'help', positional: [], flags: {} };
   let index = 0;
   const command = argv[0];
   if (command && !command.startsWith('-')) {
-    if (command !== 'serve' && command !== 'validate' && command !== 'help') {
+    if (command !== 'serve' && command !== 'validate' && command !== 'deploy' && command !== 'help') {
       throw new Error(`Unknown command: ${command}`);
     }
     result.command = command;

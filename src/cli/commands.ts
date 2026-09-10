@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { formatIssue, validateFlowJson } from '../validator/index';
 import { parseArgs, type ParsedArgs } from './args';
+import { deployFlow } from './deploy';
 import { createSimulatorServer, type SimulatorServerOptions } from './server';
 
 export type CliResult = {
@@ -13,7 +14,20 @@ export type CliResult = {
 const help = `Usage:
   flowso serve [flow.json] [options]     omit the file to start with a new flow in the browser
   flowso validate <flow.json>
+  flowso deploy <flow.json> [options]
   flowso help
+
+Deploy options:
+  --waba <id>           Required (or WHATSAPP_WABA_ID)
+  --token <token>       Required (or WHATSAPP_ACCESS_TOKEN)
+  --name <name>         Flow name (default: file name without extension)
+  --flow-id <id>        Update an existing draft
+  --publish            Publish after uploading
+  --endpoint-uri <url>  Data exchange endpoint URI
+  --categories <a,b>    Comma-separated categories
+  --preview            Fetch an interactive preview URL (default)
+  --no-preview         Disable preview
+  --skip-local-validation  Upload despite local validation errors
 
 Serve options:
   --endpoint <url>       Data exchange endpoint
@@ -68,6 +82,21 @@ async function execute(args: ParsedArgs, log: (line: string) => void): Promise<C
   if (args.positional.length > 1) throw new Error(`${args.command} accepts at most one <flow.json> path`);
   if (args.command === 'validate' && args.positional.length !== 1) throw new Error('validate requires one <flow.json> path');
   const flowPath = args.positional[0] ? resolve(args.positional[0]) : undefined;
+  if (args.command === 'deploy') {
+    if (!flowPath) throw new Error('deploy requires one <flow.json> path');
+    return deployFlow({
+      flowPath, log,
+      wabaId: textFlag(args, 'waba'),
+      token: textFlag(args, 'token'),
+      name: textFlag(args, 'name'),
+      flowId: textFlag(args, 'flow-id'),
+      publish: args.flags.publish === true,
+      endpointUri: textFlag(args, 'endpoint-uri'),
+      categories: textFlag(args, 'categories')?.split(',').map((value) => value.trim()).filter(Boolean),
+      preview: args.flags['no-preview'] !== true,
+      skipLocalValidation: args.flags['skip-local-validation'] === true,
+    });
+  }
   if (flowPath) {
     const input: unknown = JSON.parse(readFileSync(flowPath, 'utf8'));
     const result = validateFlowJson(input);

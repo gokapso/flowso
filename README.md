@@ -40,7 +40,16 @@ npx flowso serve fixtures/appointment.flow.json --endpoint http://127.0.0.1:4312
 
 # CI
 npx flowso validate flow.json
+
+# Upload to Meta as a draft (needs a WABA id and a token with whatsapp_business_management)
+WHATSAPP_ACCESS_TOKEN=... npx flowso deploy flow.json --waba <WABA_ID> --name my-flow
+# ...and publish it once you are happy
+WHATSAPP_ACCESS_TOKEN=... npx flowso deploy flow.json --waba <WABA_ID> --flow-id <FLOW_ID> --publish
 ```
+
+`deploy` runs the local validator first, uploads the JSON unchanged through
+[`@kapso/whatsapp-cloud-api`](https://github.com/gokapso/whatsapp-cloud-api-js), prints the flow id,
+Meta's own validation errors (with JSON paths) and an interactive preview URL you can share.
 
 Open the printed URL. Left: the JSON editor with inline diagnostics. Middle: the phone. Right:
 endpoint mode, validation issues, and the event log (every navigation, `data_exchange` request and
