@@ -106,7 +106,7 @@ function onInput(node: RenderedNode, value: unknown) {
             aria-label="Drag to reorder"
             @dragstart="onDragStart(node, $event)"
             @dragend="onDragEnd"
-          >⋮⋮</span>
+          ><span class="wa-edit__grip-dots" aria-hidden="true">⋮⋮</span></span>
           <component
             :is="componentFor(node.type)"
             :node="node"
@@ -115,6 +115,13 @@ function onInput(node: RenderedNode, value: unknown) {
             @input="(value: unknown) => onInput(node, value)"
           />
           <div class="wa-edit__bar" role="toolbar" :aria-label="`Edit ${node.type}`">
+            <span
+              class="wa-edit__btn wa-edit__btn--grip"
+              draggable="true"
+              title="Drag to reorder"
+              @dragstart="onDragStart(node, $event)"
+              @dragend="onDragEnd"
+            >⋮⋮</span>
             <span class="wa-edit__type">{{ node.type }}</span>
             <button type="button" class="wa-edit__btn" title="Move up" :disabled="index === 0" @click.stop="edit('up', node)">↑</button>
             <button type="button" class="wa-edit__btn" title="Move down" :disabled="index === body.length - 1" @click.stop="edit('down', node)">↓</button>
@@ -189,23 +196,41 @@ function onInput(node: RenderedNode, value: unknown) {
 }
 .wa-edit__grip {
   position: absolute;
-  left: -18px;
-  top: 50%;
-  transform: translateY(-50%);
-  display: none;
+  left: -14px;
+  top: -4px;
+  bottom: -4px;
   width: 14px;
-  line-height: 1;
-  font-size: 12px;
-  letter-spacing: -2px;
-  color: var(--wa-text-muted);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px 0 0 4px;
+  background: var(--wa-green);
+  color: #fff;
   cursor: grab;
   user-select: none;
-  padding: 4px 2px;
+  z-index: 1;
 }
 .wa-edit:hover > .wa-edit__grip {
-  display: block;
+  display: flex;
 }
 .wa-edit__grip:active {
+  cursor: grabbing;
+}
+.wa-edit__grip-dots {
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: -2px;
+}
+.wa-edit__btn--grip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  cursor: grab;
+  letter-spacing: -2px;
+  user-select: none;
+}
+.wa-edit__btn--grip:active {
   cursor: grabbing;
 }
 .wa-edit__bar {
