@@ -1,5 +1,5 @@
 {
-  "name": "@kapso/whatsapp-flows-simulator",
+  "name": "flowso",
   "version": "0.1.0",
   "description": "Local WhatsApp Flows simulator: Flow JSON runtime, validator, Meta-compatible endpoint client and Vue renderer",
   "license": "MIT",
@@ -79,7 +79,7 @@
     "vue-tsc": "^2.2.0"
   },
   "bin": {
-    "whatsapp-flows-sim": "./dist/cli/main.js"
+    "flowso": "./dist/cli/main.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -88,7 +88,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/gokapso/whatsapp-flows-simulator"
+    "url": "https://github.com/gokapso/flowso"
   },
   "keywords": [
     "whatsapp",

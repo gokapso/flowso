@@ -4,7 +4,7 @@
  *   bun examples/endpoint-server.ts                  # plaintext on http://127.0.0.1:4312/flow
  *   bun examples/endpoint-server.ts --encrypted      # prints a public key; pass it to the CLI with --public-key
  *
- * Then: whatsapp-flows-sim serve fixtures/appointment.flow.json --endpoint http://127.0.0.1:4312/flow --plaintext
+ * Then: flowso serve fixtures/appointment.flow.json --endpoint http://127.0.0.1:4312/flow --plaintext
  */
 import { createServer } from 'node:http';
 import { writeFileSync } from 'node:fs';

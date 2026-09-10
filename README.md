@@ -1,4 +1,6 @@
-# @kapso/whatsapp-flows-simulator
+# flowso
+
+**Flowso** is a local WhatsApp Flows emulator by [Kapso](https://kapso.ai).
 
 Run WhatsApp Flows locally. Render a Flow JSON, walk through its screens, fill forms, and call
 your **real data endpoint** with the same encryption Meta uses. No Meta account or WhatsApp
@@ -12,32 +14,32 @@ One npm package with subpath exports:
 
 | Import | What it gives you |
 |---|---|
-| `@kapso/whatsapp-flows-simulator/schema` | TypeScript types for Flow JSON (7.3 first, tolerant of 4.0+), per-component minimum versions. |
-| `@kapso/whatsapp-flows-simulator/runtime` | Pure state machine: screens, back stack, forms, `${data.*}` / `${form.*}` / `${screen.X.*}` bindings, backtick nested expressions, `If` / `Switch`, `navigate` / `complete` / `data_exchange` / `update_data` / `open_url`, client-side validation. No DOM, no network. |
-| `@kapso/whatsapp-flows-simulator/validator` | Local Flow JSON validator that returns diagnostics in the shape of Meta's `validation_errors` (code, message, JSON pointer). |
-| `@kapso/whatsapp-flows-simulator/endpoint` | Client that calls a data endpoint the way Meta does: RSA-OAEP (SHA-256) + AES-128-GCM, flipped IV on responses, `INIT` / `data_exchange` / `BACK` / `ping`, status mapping (421 / 427 / 432). Plaintext and mock modes. Server helper to build a local encrypted endpoint for tests. |
-| `@kapso/whatsapp-flows-simulator/catalog` | Component catalog (every Flow JSON component plus screen patterns, with snippet, minimum version, limits and docs link) and `insertComponent` / `insertScreen` helpers that place a snippet in the right spot of a flow. |
-| `@kapso/whatsapp-flows-simulator/vue` | `FlowPhone` component (WhatsApp-style phone frame with Android and iOS looks, dark mode) and `useFlowRuntime` composable. |
-| `whatsapp-flows-sim` (CLI) | `serve flow.json` opens the playground with hot reload and proxies `data_exchange` to your endpoint. `validate flow.json` for CI. |
+| `flowso/schema` | TypeScript types for Flow JSON (7.3 first, tolerant of 4.0+), per-component minimum versions. |
+| `flowso/runtime` | Pure state machine: screens, back stack, forms, `${data.*}` / `${form.*}` / `${screen.X.*}` bindings, backtick nested expressions, `If` / `Switch`, `navigate` / `complete` / `data_exchange` / `update_data` / `open_url`, client-side validation. No DOM, no network. |
+| `flowso/validator` | Local Flow JSON validator that returns diagnostics in the shape of Meta's `validation_errors` (code, message, JSON pointer). |
+| `flowso/endpoint` | Client that calls a data endpoint the way Meta does: RSA-OAEP (SHA-256) + AES-128-GCM, flipped IV on responses, `INIT` / `data_exchange` / `BACK` / `ping`, status mapping (421 / 427 / 432). Plaintext and mock modes. Server helper to build a local encrypted endpoint for tests. |
+| `flowso/catalog` | Component catalog (every Flow JSON component plus screen patterns, with snippet, minimum version, limits and docs link) and `insertComponent` / `insertScreen` helpers that place a snippet in the right spot of a flow. |
+| `flowso/vue` | `FlowPhone` component (WhatsApp-style phone frame with Android and iOS looks, dark mode) and `useFlowRuntime` composable. |
+| `flowso` (CLI) | `serve flow.json` opens the playground with hot reload and proxies `data_exchange` to your endpoint. `validate flow.json` for CI. |
 
 ## Quick start
 
 ```bash
 # Static flow: render and walk through it
-npx whatsapp-flows-sim serve flow.json
+npx flowso serve flow.json
 
 # Flow with an endpoint: encrypt requests with your business public key, call your endpoint
-npx whatsapp-flows-sim serve flow.json --endpoint https://example.com/flow --public-key ./public.pem
+npx flowso serve flow.json --endpoint https://example.com/flow --public-key ./public.pem
 
 # Plaintext endpoint (your local dev server without encryption)
-npx whatsapp-flows-sim serve flow.json --endpoint http://localhost:3000/flow --plaintext
+npx flowso serve flow.json --endpoint http://localhost:3000/flow --plaintext
 
 # No endpoint yet? Try the bundled example (encrypted), in a second terminal:
 bun examples/endpoint-server.ts --encrypted      # writes examples/public.pem
-npx whatsapp-flows-sim serve fixtures/appointment.flow.json --endpoint http://127.0.0.1:4312/flow --public-key examples/public.pem
+npx flowso serve fixtures/appointment.flow.json --endpoint http://127.0.0.1:4312/flow --public-key examples/public.pem
 
 # CI
-npx whatsapp-flows-sim validate flow.json
+npx flowso validate flow.json
 ```
 
 Open the printed URL. Left: the JSON editor with inline diagnostics. Middle: the phone. Right:
@@ -54,8 +56,8 @@ it rendered by the real runtime, edit its JSON by hand, and insert it into a scr
 ## Use the runtime in your own code
 
 ```ts
-import { createFlowRuntime } from '@kapso/whatsapp-flows-simulator/runtime';
-import { createEndpointClient } from '@kapso/whatsapp-flows-simulator/endpoint';
+import { createFlowRuntime } from 'flowso/runtime';
+import { createEndpointClient } from 'flowso/endpoint';
 import flow from './flow.json';
 
 const runtime = createFlowRuntime({
@@ -79,8 +81,8 @@ errors attached. Any UI can render that list; the Vue renderer is one implementa
 
 ```vue
 <script setup lang="ts">
-import { FlowPhone } from '@kapso/whatsapp-flows-simulator/vue';
-import '@kapso/whatsapp-flows-simulator/vue/theme.css';
+import { FlowPhone } from 'flowso/vue';
+import 'flowso/vue/theme.css';
 </script>
 
 <template>
@@ -91,7 +93,7 @@ import '@kapso/whatsapp-flows-simulator/vue/theme.css';
 ## Test your endpoint without the UI
 
 ```ts
-import { createEndpointClient, createLocalEndpointHandler, generateKeyPair } from '@kapso/whatsapp-flows-simulator/endpoint';
+import { createEndpointClient, createLocalEndpointHandler, generateKeyPair } from 'flowso/endpoint';
 
 const { publicKeyPem, privateKeyPem } = generateKeyPair();
 // Mount createLocalEndpointHandler({ privateKeyPem, handler }) on node:http to emulate your endpoint,

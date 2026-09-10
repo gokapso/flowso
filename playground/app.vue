@@ -6,10 +6,12 @@ import type { FlowDataEndpoint, FlowDataExchangeRequest, RuntimeEvent, StartOpti
 import { validateFlowJson, type ValidationIssue } from '../src/validator/index';
 import FlowPhone from '../src/vue/flow-phone.vue';
 import JsonEditor from './json-editor.vue';
-import ComponentGallery from './component-gallery.vue';
+import GalleryList from './gallery-list.vue';
+import GalleryDetail from './gallery-detail.vue';
+import { useGallery } from './use-gallery';
 import sample from '../fixtures/appointment.flow.json';
 
-const STORAGE_KEY = 'whatsapp-flows-simulator:flow';
+const STORAGE_KEY = 'flowso:flow';
 
 const source = ref(localStorage.getItem(STORAGE_KEY) ?? JSON.stringify(sample, null, 2));
 const parsed = shallowRef<FlowJson | null>(null);
@@ -23,11 +25,45 @@ const phone = ref<InstanceType<typeof FlowPhone> | null>(null);
 const cliConnected = ref(false);
 const flowFileName = ref<string | null>(null);
 const showGallery = ref(false);
+const gallery = useGallery(parsed);
 
 function onGalleryInsert(flow: FlowJson, path: string) {
   source.value = JSON.stringify(flow, null, 2);
   showGallery.value = false;
   events.value = [...events.value.slice(-199), { type: 'warning', message: `Inserted component at ${path}` }];
+}
+
+/** The phone renders the gallery preview while the gallery is open; it never moves. */
+const phoneFlow = computed(() => (showGallery.value ? gallery.previewFlow.value : parsed.value));
+const phoneKey = computed(() => (showGallery.value ? `gallery:${gallery.selectedId.value}` : 'flow'));
+
+// Layout: collapsible and resizable side columns ------------------------------
+const LAYOUT_KEY = 'flowso:layout';
+type Layout = { left: number; right: number; leftOpen: boolean; rightOpen: boolean };
+const layout = ref<Layout>({ left: 560, right: 340, leftOpen: true, rightOpen: true, ...JSON.parse(localStorage.getItem(LAYOUT_KEY) ?? '{}') });
+watch(layout, (value) => localStorage.setItem(LAYOUT_KEY, JSON.stringify(value)), { deep: true });
+
+const gridColumns = computed(() => {
+  const left = layout.value.leftOpen ? `minmax(280px, ${layout.value.left}px)` : '0px';
+  const right = layout.value.rightOpen ? `${layout.value.right}px` : '0px';
+
+  return `${left} 6px minmax(420px, 1fr) 6px ${right}`;
+});
+
+function startResize(side: 'left' | 'right', event: PointerEvent) {
+  const startX = event.clientX;
+  const start = layout.value[side];
+  const move = (e: PointerEvent) => {
+    const delta = e.clientX - startX;
+    const next = side === 'left' ? start + delta : start - delta;
+    layout.value[side] = Math.max(240, Math.min(900, next));
+  };
+  const stop = () => {
+    window.removeEventListener('pointermove', move);
+    window.removeEventListener('pointerup', stop);
+  };
+  window.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', stop);
 }
 
 // Endpoint configuration -----------------------------------------------------
@@ -231,22 +267,25 @@ onBeforeUnmount(() => eventSource?.close());
 
 <template>
   <div class="pg">
-    <ComponentGallery :flow="parsed" :open="showGallery" @close="showGallery = false" @insert="onGalleryInsert" />
     <div class="pg__bar">
-      <span class="pg__brand">WhatsApp Flows Simulator</span>
+      <span class="pg__brand">Flowso</span>
       <span v-if="cliConnected" class="pg__muted">watching {{ flowFileName }}</span>
       <label>Start <select v-model="startMode"><option value="navigate">navigate (first screen)</option><option value="data_exchange">data_exchange (INIT)</option></select></label>
       <label>Platform <select v-model="platform"><option value="android">Android</option><option value="ios">iOS</option></select></label>
       <label><input v-model="dark" type="checkbox" /> Dark</label>
-      <button class="pg__btn" type="button" @click="showGallery = true">Components</button>
+      <button class="pg__btn" type="button" :class="{ 'pg__btn--active': showGallery }" @click="showGallery = !showGallery">{{ showGallery ? 'Back to editor' : 'Components' }}</button>
+      <button class="pg__btn pg__btn--icon" type="button" :title="layout.leftOpen ? 'Collapse left panel' : 'Expand left panel'" @click="layout.leftOpen = !layout.leftOpen">{{ layout.leftOpen ? '⇤' : '⇥' }}</button>
+      <button class="pg__btn pg__btn--icon" type="button" :title="layout.rightOpen ? 'Collapse right panel' : 'Expand right panel'" @click="layout.rightOpen = !layout.rightOpen">{{ layout.rightOpen ? '⇥' : '⇤' }}</button>
       <button class="pg__btn" type="button" @click="loadSample">Sample</button>
       <label class="pg__btn">Open… <input type="file" accept="application/json" hidden @change="loadFile" /></label>
       <button class="pg__btn" type="button" @click="download">Download</button>
       <button class="pg__btn pg__btn--primary" type="button" @click="restart">Restart</button>
     </div>
 
-    <div class="pg__main">
-      <div class="pg__editor">
+    <div class="pg__main" :style="{ gridTemplateColumns: gridColumns }">
+      <div v-show="layout.leftOpen" class="pg__editor">
+        <GalleryList v-if="showGallery" :gallery="gallery" />
+        <template v-else>
         <div class="pg__editor-status">
           <span v-if="parseError" class="bad">JSON error: {{ parseError }}</span>
           <template v-else>
@@ -256,12 +295,15 @@ onBeforeUnmount(() => eventSource?.close());
           </template>
         </div>
         <JsonEditor v-model="source" :diagnostics="diagnostics" />
+        </template>
       </div>
+      <div class="pg__handle pg__handle--left" :class="{ 'pg__handle--off': !layout.leftOpen }" @pointerdown="startResize('left', $event)" />
 
       <div class="pg__phone">
         <FlowPhone
           ref="phone"
-          :flow="parsed"
+          :key="phoneKey"
+          :flow="phoneFlow"
           :endpoint="endpoint"
           :start-options="startOptions"
           :platform="platform"
@@ -271,7 +313,10 @@ onBeforeUnmount(() => eventSource?.close());
         />
       </div>
 
-      <div class="pg__side">
+      <div class="pg__handle pg__handle--right" :class="{ 'pg__handle--off': !layout.rightOpen }" @pointerdown="startResize('right', $event)" />
+      <div v-show="layout.rightOpen" class="pg__side">
+        <GalleryDetail v-if="showGallery" :gallery="gallery" :has-flow="!!parsed" @insert="onGalleryInsert" />
+        <template v-else>
         <div class="pg__section">
           <h3>Endpoint</h3>
           <div class="pg__field">
@@ -321,6 +366,7 @@ onBeforeUnmount(() => eventSource?.close());
             </li>
           </ul>
         </div>
+        </template>
       </div>
     </div>
   </div>

@@ -11,9 +11,9 @@ export type CliResult = {
 };
 
 const help = `Usage:
-  whatsapp-flows-sim serve <flow.json> [options]
-  whatsapp-flows-sim validate <flow.json>
-  whatsapp-flows-sim help
+  flowso serve <flow.json> [options]
+  flowso validate <flow.json>
+  flowso help
 
 Serve options:
   --endpoint <url>       Data exchange endpoint

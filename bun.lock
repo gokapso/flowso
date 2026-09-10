@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "@kapso/whatsapp-flows-simulator",
+      "name": "flowso",
       "devDependencies": {
         "@codemirror/lang-json": "^6.0.1",
         "@codemirror/lint": "^6.8.0",
