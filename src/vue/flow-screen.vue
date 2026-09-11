@@ -178,6 +178,19 @@ function onInput(node: RenderedNode, value: unknown) {
 .wa-edit--dragging {
   opacity: 0.4;
 }
+.wa-edit--grab,
+.wa-edit--grab :deep(*) {
+  cursor: grab;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.wa-edit--grab:active,
+.wa-edit--grab:active :deep(*) {
+  cursor: grabbing;
+}
+.wa-edit--grab :deep(img) {
+  pointer-events: none;
+}
 .wa-edit::before {
   content: '';
   position: absolute;
