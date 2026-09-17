@@ -1,5 +1,5 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { mkdtemp, mkdir, rename, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rename, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -202,5 +202,56 @@ describe('simulator HTTP server', () => {
     await events(url);
     await server.stop();
     await expect(fetch(`${url}/__sim/flow`)).rejects.toThrow();
+  });
+});
+
+
+describe('preview journal', () => {
+  async function preview(endpointUrl: string, timeoutMs = 1000) {
+    const logFile = join(directory, 'artifacts/preview.jsonl');
+    const server = createSimulatorServer({ flowPath, staticDir, port: 0, logFile, endpoint: { url: endpointUrl, mode: 'plaintext', timeoutMs } });
+    cleanup.push(server.stop);
+    const { url } = await server.start();
+    return { url, logFile, records: async () => (await readFile(logFile, 'utf8')).trim().split('\n').map(line => JSON.parse(line)) };
+  }
+
+  it('correlates concurrent exchanges, records payloads and runtime validation, and redacts secrets', async () => {
+    const endpointUrl = await fakeEndpoint((request, response) => {
+      let body = '';
+      request.on('data', chunk => { body += chunk; });
+      request.on('end', () => {
+        const input = JSON.parse(body);
+        setTimeout(() => response.end(JSON.stringify({ screen: 'DONE', data: { name: input.data.name, api_key: 'response-secret' } })), input.data.name === 'Ada' ? 30 : 0);
+      });
+    });
+    const { url, records } = await preview(endpointUrl + '?token=url-secret');
+    await Promise.all(['Ada', 'Grace'].map(name => fetch(`${url}/__sim/exchange`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-flowso-session': name }, body: JSON.stringify({ ...requestBody, data: { name, password: 'request-secret' } }) })));
+    const runtime = await fetch(`${url}/__sim/trace`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ sessionId: 'Ada', event: { type: 'validation_failed', screenId: 'DETAILS', errors: { email: 'Invalid email' } } }) });
+    expect(runtime.status).toBe(200);
+    const events = await records();
+    for (const request of events.filter(event => event.kind === 'exchange.request')) {
+      const response = events.find(event => event.kind === 'exchange.response' && event.requestId === request.requestId);
+      expect(response).toMatchObject({ sessionId: request.sessionId, httpStatus: 200, response: { data: { name: request.request.data.name, api_key: '[redacted]' } } });
+      expect(response.durationMs).toBeGreaterThanOrEqual(0);
+      expect(request.request.flow_token).toBe('[redacted]');
+    }
+    expect(JSON.stringify(events)).not.toMatch(/response-secret|request-secret|url-secret/);
+    expect(events.at(-1)).toMatchObject({ kind: 'runtime', event: { type: 'validation_failed', errors: { email: 'Invalid email' } } });
+    expect((await fetch(`${url}/__sim/flow`).then(response => response.json())).tracing).toBe(true);
+  });
+
+  it.each([503, 200])('records upstream HTTP %s failures including unreadable responses', async status => {
+    const endpointUrl = await fakeEndpoint((_request, response) => { response.writeHead(status); response.end('invalid'); });
+    const { url, records } = await preview(endpointUrl);
+    expect((await post(url)).status).toBe(502);
+    expect((await records()).at(-1)).toMatchObject({ kind: 'exchange.error', httpStatus: status, error: { kind: status === 503 ? 'http' : 'invalid_response' } });
+  });
+
+  it('records timeouts and rejects cross-origin runtime events', async () => {
+    const endpointUrl = await fakeEndpoint(() => undefined);
+    const { url, records } = await preview(endpointUrl, 20);
+    expect((await post(url)).status).toBe(502);
+    expect((await records()).at(-1)).toMatchObject({ kind: 'exchange.error', error: { kind: 'timeout' } });
+    expect((await fetch(`${url}/__sim/trace`, { method: 'POST', headers: { 'content-type': 'application/json', origin: 'https://other.example' }, body: '{}' })).status).toBe(403);
   });
 });

@@ -39,7 +39,9 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "skills",
+    "templates"
   ],
   "scripts": {
     "test": "vitest run",
@@ -52,7 +54,8 @@
     "build:lib": "vite build --config vite.lib.config.ts",
     "build:types": "vue-tsc --declaration --emitDeclarationOnly -p tsconfig.build.json",
     "cli": "bun src/cli/main.ts",
-    "prepublishOnly": "bun run test && bun run build"
+    "prepublishOnly": "bun run test && bun run build",
+    "test:package": "node scripts/smoke-package.mjs"
   },
   "peerDependencies": {
     "vue": "^3.5.0"

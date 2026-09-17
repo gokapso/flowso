@@ -9,7 +9,22 @@ describe('top-level structure', () => {
 
   it('reports each missing required top-level field', () => {
     const result = validateFlowJson({});
-    for (const key of ['version', 'screens', 'routing_model']) expectIssue(result, 'MISSING_REQUIRED_PROPERTY', key);
+    for (const key of ['version', 'screens']) expectIssue(result, 'MISSING_REQUIRED_PROPERTY', key);
+  });
+
+  it.each([
+    [screen([footer()])],
+    [screen([footer('navigate', { next: { type: 'screen', name: 'END' } })], { terminal: false }),
+      screen([footer()], { id: 'END' })],
+  ])('accepts static flows without a routing model: %j', (...screens) => {
+    const result = validateFlowJson({ version: '7.3', screens });
+    expect(result.issues).toEqual([]);
+    expect(result.valid).toBe(true);
+  });
+
+  it('requires a routing model when data_api_version is declared', () => {
+    const result = validateFlowJson({ version: '7.3', data_api_version: '3.0', screens: [screen([footer()])] });
+    expectIssue(result, 'MISSING_REQUIRED_PROPERTY', 'routing_model');
   });
 
   it.each([

@@ -107,3 +107,15 @@ describe('CLI commands', () => {
     expect((await runCli(['validate', path], log)).exitCode).toBe(1);
   });
 });
+
+
+it('requires a file for preview and exposes its focused URL and journal', async () => {
+  const log = vi.fn();
+  expect((await runCli(['preview'], log)).exitCode).toBe(1);
+  log.mockClear();
+  const result = await runCli(['preview', path, '--port', '0', '--log-file', join(directory, 'preview.jsonl')], log);
+  if (result.server) servers.push(result.server);
+  expect(result.exitCode).toBe(0);
+  expect(log).toHaveBeenCalledWith(expect.stringMatching(/^Preview running at http:\/\/127\.0\.0\.1:\d+\/\?view=preview$/));
+  expect(log).toHaveBeenCalledWith(`Preview log: ${join(directory, 'preview.jsonl')}`);
+});

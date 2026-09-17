@@ -3,6 +3,7 @@ import { basename, extname } from 'node:path';
 import { WhatsAppClient, type CreateFlowResponse, type FlowValidationError } from '@kapso/whatsapp-cloud-api';
 import { formatIssue, validateFlowJson } from '../validator/index';
 import { deployToKapso } from './kapso';
+import { prepareKapsoEndpoint } from './kapso-endpoint';
 
 type Deploy = WhatsAppClient['flows']['deploy'];
 type DeployClient = { flows: { deploy: Deploy } };
@@ -19,6 +20,10 @@ export type DeployOptions = {
   flowId?: string;
   publish?: boolean;
   endpointUri?: string;
+  dataEndpoint?: string;
+  secretEnv?: string[];
+  setupEncryption?: boolean;
+  registerEndpoint?: boolean;
   categories?: string[];
   preview?: boolean;
   skipLocalValidation?: boolean;
@@ -92,6 +97,7 @@ export async function deployFlow(
   try {
     const target = options.to ?? 'meta';
     if (target !== 'meta' && target !== 'kapso') throw new Error('--to must be meta or kapso');
+    const endpoint = prepareKapsoEndpoint(options);
     const wabaId = options.wabaId ?? process.env.WHATSAPP_WABA_ID;
     const phoneNumberId = options.phoneNumberId ?? process.env.WHATSAPP_PHONE_NUMBER_ID;
     if (target === 'kapso') {
@@ -112,7 +118,7 @@ export async function deployFlow(
       return await deployToKapso({
         apiKey: kapsoKey!, baseUrl: options.kapsoUrl ?? process.env.KAPSO_API_URL,
         phoneNumberId: phoneNumberId!, name: options.name ?? basename(options.flowPath, extname(options.flowPath)),
-        flowId: options.flowId, publish: options.publish, flowJson, log,
+        flowId: options.flowId, publish: options.publish, flowJson, log, endpoint,
       }, deps);
     }
     const client = (deps.createClient ?? createWireClient)(token!);

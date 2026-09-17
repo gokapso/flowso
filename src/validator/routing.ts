@@ -17,6 +17,24 @@ export const validateRouting: Rule = (context) => {
       } else if (ids.has(source)) incoming.add(target);
     });
   }
+  // Only edges on the active DFS path close a cycle. Array order is not navigation order.
+  const active = new Set<string>();
+  const visited = new Set<string>();
+  function visit(source: string): void {
+    if (visited.has(source)) return;
+    active.add(source);
+    const targets = routing[source];
+    if (Array.isArray(targets)) targets.forEach((target: unknown, index) => {
+      if (!isString(target) || !ids.has(target)) return;
+      if (active.has(target)) {
+        addIssue(context, 'INVALID_ROUTING_MODEL', `routing_model.${source}[${index}]`,
+          `Back navigation is implicit. Remove ${source} → ${target} from routing_model; this edge creates a cycle.`);
+      } else visit(target);
+    });
+    active.delete(source);
+    visited.add(source);
+  }
+  for (const source of Object.keys(routing)) if (ids.has(source)) visit(source);
   for (const screen of context.screens) {
     for (const { value: action, path } of screen.actions) {
       if (!isObject(action) || action.name !== 'navigate' || !isObject(action.next) || !isString(action.next.name)) continue;

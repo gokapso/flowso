@@ -184,6 +184,19 @@ describe('createFlowRuntime', () => {
       expect(JSON.parse(state.completion?.responseJson ?? '{}')).toEqual({ flow_token: 'tok', code: 'OK' });
     });
 
+    it('blocks a stale selection after the endpoint removes the selected option', async () => {
+      const api = endpoint(() => ({ screen: 'DETAILS', data: { slots: [{ id: 's2', title: 'Tue' }] } }));
+      const runtime = createFlowRuntime({ flow, endpoint: api });
+      await reachDetails(runtime);
+      await runtime.dispatch(footerAction(runtime));
+      const state = await runtime.dispatch(footerAction(runtime));
+      expect(state.fieldErrors.DETAILS?.slot).toBe('Choose an available option');
+      expect(api.calls).toHaveLength(1);
+      await runtime.setFormValue('slot', 's2');
+      await runtime.dispatch(footerAction(runtime));
+      expect(api.calls).toHaveLength(2);
+    });
+
     it('starts with INIT in data_exchange mode', async () => {
       const api = endpoint((request) => (request.action === 'INIT' ? { screen: 'DETAILS', data: { first_name: 'Init', service: 'whitening' } } : {}));
       const runtime = createFlowRuntime({ flow, endpoint: api });

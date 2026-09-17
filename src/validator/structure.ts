@@ -4,8 +4,12 @@ const TOP_LEVEL_KEYS = new Set(['version', 'screens', 'routing_model', 'data_api
 
 export const validateStructure: Rule = (context) => {
   const { flow } = context;
-  for (const key of ['version', 'screens', 'routing_model']) {
+  for (const key of ['version', 'screens']) {
     if (!Object.hasOwn(flow, key)) addIssue(context, 'MISSING_REQUIRED_PROPERTY', key, `${key} is required`);
+  }
+  if (Object.hasOwn(flow, 'data_api_version') && !Object.hasOwn(flow, 'routing_model')) {
+    addIssue(context, 'MISSING_REQUIRED_PROPERTY', 'routing_model',
+      'routing_model is required when data_api_version is declared');
   }
   if (Object.hasOwn(flow, 'version') && (!isString(flow.version) || !/^\d+\.\d+$/.test(flow.version))) {
     addIssue(context, 'INVALID_PROPERTY_VALUE', 'version', 'version must be a string in major.minor format');

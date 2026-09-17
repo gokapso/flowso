@@ -5,6 +5,8 @@ import type { FlowJson } from '../src/schema/flow-json';
 import type { FlowDataEndpoint, FlowDataExchangeRequest, RuntimeEvent, StartOptions } from '../src/runtime/types';
 import { validateFlowJson, type ValidationIssue } from '../src/validator/index';
 import FlowPhone from '../src/vue/flow-phone.vue';
+import FlowBuilderPanel from '../src/vue/builder/flow-builder-panel.vue';
+import { parseBuilderFlow } from '../src/catalog/builder';
 import type { ScreenEdit } from '../src/vue/edit-types';
 import { moveComponent, moveComponentTo, removeComponent } from '../src/catalog/edit-component';
 import JsonEditor from './json-editor.vue';
@@ -131,10 +133,25 @@ const endpoint = computed<FlowDataEndpoint | undefined>(() => {
 
 /** Screen to reopen after an inline edit rebuilds the runtime; cleared on Restart. */
 const resumeScreen = ref<string | null>(null);
-const startOptions = computed<StartOptions>(() =>
-  resumeScreen.value ? { mode: 'navigate', screen: resumeScreen.value } : { mode: startMode.value },
-);
-const editMode = ref(true);
+const startOptions = computed<StartOptions>(() => {
+  // Catalog examples are independent flows; never reuse the builder's screen or endpoint mode.
+  if (showGallery.value) return { mode: 'navigate' };
+
+  return resumeScreen.value && parsed.value?.screens.some((screen) => screen.id === resumeScreen.value)
+    ? { mode: 'navigate', screen: resumeScreen.value } : { mode: startMode.value };
+});
+const editMode = ref(false);
+const builderScreen = ref<string | null>(null);
+function selectBuilderScreen(id: string) {
+  builderScreen.value = id;
+  resumeScreen.value = id;
+}
+function updateBuilderSource(value: string) {
+  if (!showGallery.value && phone.value?.state?.screenId) resumeScreen.value = phone.value.state.screenId;
+  source.value = value;
+  // Visual mutations apply synchronously so fast edits never use a stale draft.
+  parseSource(value);
+}
 
 function onEdit(edit: ScreenEdit) {
   if (!parsed.value) return;
@@ -168,7 +185,7 @@ watch(
 
 function parseSource(value: string) {
   try {
-    const next = JSON.parse(value) as FlowJson;
+    const next = parseBuilderFlow(value);
     parseError.value = null;
     const result = validateFlowJson(next);
     issues.value = result.issues;
@@ -212,8 +229,14 @@ function locate(doc: string, path: string | undefined): { from: number; to: numb
 
 // Events ---------------------------------------------------------------------
 function onEvent(event: RuntimeEvent) {
+  if (!showGallery.value) {
+    if (event.type === 'navigate' || event.type === 'back') builderScreen.value = event.to;
+    if (event.type === 'start') builderScreen.value = event.screenId;
+  }
   events.value = [...events.value.slice(-199), event];
 }
+
+function openUrl(url: string) { window.open(url, '_blank', 'noopener,noreferrer'); }
 
 function describe(event: RuntimeEvent): string {
   switch (event.type) {
@@ -238,7 +261,7 @@ function describe(event: RuntimeEvent): string {
 
 function restart() {
   events.value = [];
-  resumeScreen.value = null;
+  if (!showGallery.value) resumeScreen.value = null;
   void phone.value?.restart();
 }
 
@@ -318,7 +341,10 @@ onMounted(async () => {
     const payload = (await response.json()) as { fileName: string | null; flow: unknown; endpoint?: { configured: boolean } };
     cliConnected.value = true;
     flowFileName.value = payload.fileName;
-    if (payload.endpoint?.configured) endpointMode.value = 'proxy';
+    if (payload.endpoint?.configured) {
+      endpointMode.value = 'proxy';
+      if (payload.flow && typeof payload.flow === 'object' && 'data_api_version' in payload.flow) startMode.value = 'data_exchange';
+    }
     if (!payload.fileName) {
       // `flowso serve` without a file: keep whatever the browser had, or start a new flow.
       if (!localStorage.getItem(STORAGE_KEY)) source.value = JSON.stringify(starterFlow(), null, 2);
@@ -391,7 +417,9 @@ onBeforeUnmount(() => eventSource?.close());
             <span :title="isDynamic ? 'Uses a data endpoint: configure it (and encryption) before publishing; Meta\'s preview needs flow_token and phone_number.' : 'No data endpoint: navigate and complete only.'">{{ isDynamic ? 'dynamic · needs endpoint' : 'static' }}</span>
           </template>
         </div>
-        <JsonEditor v-model="source" :diagnostics="diagnostics" />
+        <FlowBuilderPanel :model-value="source" :screen-id="builderScreen" @update:model-value="updateBuilderSource" @select-screen="selectBuilderScreen">
+          <template #json="{ value, update }"><JsonEditor :model-value="value" :diagnostics="diagnostics" @update:model-value="update" /></template>
+        </FlowBuilderPanel>
         </template>
       </div>
       <div class="pg__handle pg__handle--left" @pointerdown="startResize('left', $event)" />
@@ -401,14 +429,15 @@ onBeforeUnmount(() => eventSource?.close());
           ref="phone"
           :key="phoneKey"
           :flow="phoneFlow"
-          :endpoint="endpoint"
+          :endpoint="showGallery ? undefined : endpoint"
+          :use-examples="showGallery || (endpointMode !== 'proxy' && endpointMode !== 'direct')"
           :start-options="startOptions"
           :platform="platform"
           :dark="dark"
           :editable="editMode && !showGallery"
           @edit="onEdit"
           @event="onEvent"
-          @open-url="(url) => window.open(url, '_blank')"
+          @open-url="openUrl"
         />
       </div>
 
@@ -433,7 +462,7 @@ onBeforeUnmount(() => eventSource?.close());
             <select v-model="endpointMode">
               <option value="none">None (static flow)</option>
               <option value="mock">Mock responses (below)</option>
-              <option value="proxy" :disabled="!cliConnected">Real endpoint through CLI (encrypted)</option>
+              <option value="proxy" :disabled="!cliConnected">Real endpoint through CLI</option>
               <option value="direct">Direct URL (plaintext, needs CORS)</option>
             </select>
           </div>
@@ -447,7 +476,7 @@ onBeforeUnmount(() => eventSource?.close());
             <span v-if="mockError" class="bad">{{ mockError }}</span>
           </div>
           <div v-if="endpointMode === 'proxy'" class="pg__muted">
-            Requests are encrypted by the CLI with the public key you passed and sent to your endpoint, the same way Meta does.
+            Requests use the endpoint and transport configured in the CLI. Screen data comes from the endpoint; example values are disabled.
           </div>
         </div>
 

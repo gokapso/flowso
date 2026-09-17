@@ -1,0 +1,134 @@
+import assert from 'node:assert/strict';
+import { spawn, spawnSync } from 'node:child_process';
+import { once } from 'node:events';
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const root = dirname(dirname(fileURLToPath(import.meta.url)));
+const directory = await mkdtemp(join(tmpdir(), 'flowso-package-'));
+const children = [];
+const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !['CAL_', 'KAPSO_', 'WHATSAPP_'].some(prefix => key.startsWith(prefix))));
+
+function run(command, args, cwd, expectedStatus = 0) {
+  const result = spawnSync(command, args, { cwd, env, encoding: 'utf8', timeout: 60_000, maxBuffer: 5 * 1024 * 1024 });
+  assert.equal(result.status, expectedStatus, `${command} ${args.join(' ')}\n${result.error ?? ''}\n${result.stdout?.slice(-5000)}\n${result.stderr?.slice(-2000)}`);
+  return result.stdout;
+}
+
+async function start(command, args, cwd, match) {
+  const child = spawn(command, args, { cwd, env: { ...env, PORT: '0' }, stdio: ['ignore', 'pipe', 'pipe'] });
+  children.push(child);
+  return new Promise((resolve, reject) => {
+    let output = '';
+    const timer = setTimeout(() => reject(new Error(`Server did not start: ${output.slice(-2000)}`)), 10_000);
+    child.on('error', error => { clearTimeout(timer); reject(error); });
+    child.on('exit', code => { clearTimeout(timer); reject(new Error(`Server exited ${code}: ${output.slice(-2000)}`)); });
+    child.stderr.on('data', chunk => { output += chunk; });
+    child.stdout.on('data', chunk => {
+      output += chunk;
+      const found = output.match(match);
+      if (found) { clearTimeout(timer); resolve(found[0]); }
+    });
+  });
+}
+
+try {
+  const archive = join(directory, 'flowso.tgz');
+  run('bun', ['run', 'build'], root);
+  run('bun', ['pm', 'pack', '--filename', archive, '--quiet'], root);
+  const consumer = join(directory, 'consumer');
+  await mkdir(consumer);
+  await writeFile(join(consumer, 'package.json'), '{"name":"flowso-package-check","private":true,"type":"module"}');
+  run('bun', ['add', archive], consumer);
+  const cli = join(consumer, 'node_modules/flowso/dist/cli/main.js');
+  const command = (args, expectedStatus = 0) => run(process.execPath, [cli, ...args], consumer, expectedStatus);
+  command(['init', 'booking']);
+  assert.match(await readFile(join(consumer, 'booking/.agents/skills/flowso/SKILL.md'), 'utf8'), /name: flowso/);
+  const scenarioReference = 'references/scenarios.md';
+  const sourceReference = await readFile(join(root, 'skills/flowso', scenarioReference), 'utf8');
+  assert.equal(await readFile(join(consumer, 'booking/.agents/skills/flowso', scenarioReference), 'utf8'), sourceReference);
+  command(['skill', '--install', 'offline-skill']);
+  assert.equal(await readFile(join(consumer, 'offline-skill', scenarioReference), 'utf8'), sourceReference);
+  assert.ok(command(['skill']).includes(sourceReference));
+  const schedulingReference = await readFile(join(root, 'skills/flowso/references/cal-com.md'), 'utf8');
+  assert.equal(await readFile(join(consumer, 'offline-skill/references/cal-com.md'), 'utf8'), schedulingReference);
+  assert.equal(await readFile(join(consumer, 'booking/.agents/skills/flowso/references/cal-com.md'), 'utf8'), schedulingReference);
+  const deployReference = await readFile(join(root, 'skills/flowso/references/kapso-deploy.md'), 'utf8');
+  assert.equal(await readFile(join(consumer, 'offline-skill/references/kapso-deploy.md'), 'utf8'), deployReference);
+  assert.ok(command(['skill']).includes(deployReference));
+  // Exercise the installed Node CLI against a local Platform API contract fixture.
+  await writeFile(join(consumer, 'kapso-fixture.mjs'), `
+    import { createServer } from 'node:http';
+    const calls = [];
+    const server = createServer(async (req, res) => {
+      const chunks = []; for await (const chunk of req) chunks.push(chunk);
+      const body = chunks.length ? JSON.parse(Buffer.concat(chunks)) : undefined;
+      if (req.url === '/calls') { res.end(JSON.stringify(calls)); return; }
+      calls.push({ path: req.url, method: req.method, body });
+      let data;
+      if (req.url.endsWith('/versions')) data = { id: 'version-final', status: 'draft', validation_errors: null };
+      else if (req.url.endsWith('/secrets')) data = { message: 'Secret created successfully' };
+      else if (req.url.endsWith('/setup_encryption')) data = { flows_encryption_configured: true };
+      else if (req.url.includes('/data_endpoint')) data = { function_id: 'function-123', status: 'deployed', flow_has_encryption: true };
+      else data = { id: 'flow-123', status: 'draft', has_data_endpoint: true, flows_encryption_configured: true, preview_url: 'https://example.com/fresh-preview' };
+      res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ data }));
+    });
+    server.listen(0, '127.0.0.1', () => console.log('http://127.0.0.1:' + server.address().port));
+  `);
+  const kapso = await start(process.execPath, ['kapso-fixture.mjs'], consumer, /http:\/\/127\.0\.0\.1:\d+/);
+  env.KAPSO_API_URL = kapso + '/platform/v1';
+  env.KAPSO_API_KEY = 'package-test-key';
+  env.WHATSAPP_PHONE_NUMBER_ID = 'package-phone';
+  env.CAL_API_KEY = 'package-provider-secret';
+  env.CAL_ALLOW_BOOKINGS = '0';
+  await writeFile(join(consumer, 'kapso-endpoint.js'), 'async function handler(request, env) { return { screen: "START", data: {} }; }');
+  const deployed = command(['deploy', 'booking/flow.json', '--to', 'kapso', '--data-endpoint', 'kapso-endpoint.js',
+    '--secret-env', 'CAL_API_KEY', '--secret-env=CAL_ALLOW_BOOKINGS', '--setup-encryption', '--register-endpoint']);
+  assert.match(deployed, /Draft deployed/);
+  assert.ok(!deployed.includes(env.CAL_API_KEY));
+  const requests = await fetch(kapso + '/calls').then(response => response.json());
+  assert.equal(requests.length, 9);
+  assert.equal(requests[0].body.publish, false);
+  assert.deepEqual(requests[4].body, { secret: { name: 'CAL_API_KEY', value: env.CAL_API_KEY } });
+  assert.deepEqual(requests[5].body, { secret: { name: 'CAL_ALLOW_BOOKINGS', value: '0' } });
+  assert.equal(requests[6].path, '/platform/v1/whatsapp/flows/flow-123/data_endpoint/register');
+  assert.equal(requests[7].path, '/platform/v1/whatsapp/flows/flow-123/versions');
+  assert.deepEqual(requests[7].body.flow_json, requests[0].body.flow_json);
+  assert.ok(!requests.some(request => request.path.includes('/publish')));
+  for (const key of Object.keys(env)) if (['CAL_', 'KAPSO_', 'WHATSAPP_'].some(prefix => key.startsWith(prefix))) delete env[key];
+  assert.equal(JSON.parse(command(['catalog', 'text-input', '--json'])).entry.component.type, 'TextInput');
+  assert.equal(JSON.parse(command(['validate', 'booking/flow.json', '--json'])).ok, true);
+  assert.equal(JSON.parse(command(['inspect', 'booking/flow.json', '--examples', '--json'])).snapshot.screen, 'DETAILS');
+  const endpoint = await start(process.execPath, ['dev-server.mjs'], join(consumer, 'booking'), /http:\/\/127\.0\.0\.1:\d+\/flow/);
+  const endpointArgs = ['--endpoint', endpoint, '--plaintext'];
+  assert.equal(JSON.parse(command(['inspect', 'booking/flow.json', ...endpointArgs, '--json'])).snapshot.screen, 'DETAILS');
+  const report = JSON.parse(command(['test', 'booking/flow.json', '--scenario', 'booking/scenarios.json', ...endpointArgs, '--json']));
+  assert.equal(report.ok, true);
+  assert.equal(report.tests.length, 6);
+  const availability = JSON.parse(command(['test', 'booking/flow.json', '--scenario', 'booking/scenarios.availability.json', ...endpointArgs, '--json', '--trace']));
+  assert.equal(availability.ok, true);
+  assert.equal(availability.tests[0].snapshot.screen, 'SLOTS');
+  assert.ok(!availability.tests[0].events.some(event => event.type === 'data_exchange:request' && event.request?.screen === 'REVIEW'));
+  assert.equal(JSON.parse(command(['test', 'booking/flow.json', '--scenario', 'booking/scenarios.json', '--test', 'missing', ...endpointArgs, '--json'], 1)).ok, false);
+  const preview = await start(process.execPath, [cli, 'preview', 'booking/flow.json', ...endpointArgs, '--port', '0', '--log-file', 'preview.jsonl'], consumer, /http:\/\/127\.0\.0\.1:\d+/);
+  const html = await fetch(preview).then(response => { assert.equal(response.status, 200); return response.text(); });
+  const asset = html.match(/src="([^"]+\.js)"/)[1];
+  assert.equal((await fetch(new URL(asset, preview))).status, 200);
+  assert.equal((await fetch(`${preview}/__sim/flow`).then(response => response.json())).tracing, true);
+  const exchange = await fetch(`${preview}/__sim/exchange`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-flowso-session': 'package-check' }, body: JSON.stringify({ version: '3.0', action: 'INIT', flow_token: 'package-test' }) });
+  assert.equal(exchange.status, 200);
+  const journal = (await readFile(join(consumer, 'preview.jsonl'), 'utf8')).trim().split('\n').map(line => JSON.parse(line));
+  assert.ok(journal.some(record => record.kind === 'exchange.response' && record.response.screen === 'DETAILS'));
+  console.log(JSON.stringify({ ok: true, installedPackage: true, scenarios: report.tests.length, skill: true, catalog: true, previewAssets: true, kapsoDraftDeploy: true }));
+} finally {
+  for (const child of children) {
+    if (child.exitCode === null && child.signalCode === null) {
+      const exited = once(child, 'exit'); child.kill('SIGTERM');
+      const force = setTimeout(() => child.kill('SIGKILL'), 3000);
+      await exited; clearTimeout(force);
+    }
+  }
+  await rm(directory, { recursive: true, force: true });
+}
