@@ -30,6 +30,7 @@ const help = `Usage:
   flowso send --to-number <E.164> --flow-id <meta flow id> --phone-number-id <id> [options]
   flowso preview-url --to kapso --flow-id <Kapso UUID> [--screen ID --data '{...}'] [--json]
   flowso verify --to kapso --flow-id <Kapso UUID> --data '{...}' [--json]
+  flowso endpoint attach --to kapso --flow-id <Kapso UUID> --function-id <Function UUID> [--json]
   flowso endpoint deploy --to kapso --flow-id <Kapso UUID> --data-endpoint <file> [--secret-env NAME ...]
   flowso secrets set --to kapso --flow-id <Kapso UUID> --secret-env NAME [...]
   flowso bookings enable --to kapso --flow-id <Kapso UUID> --for 10m
@@ -79,7 +80,9 @@ Deployed operations:
   --input-screen, --availability-screen, --review-screen override DETAILS, SLOTS, REVIEW.
   --data supplies availability input. No slots means the full smoke test cannot pass.
   bookings enable requires an expiry-aware endpoint and --for 1m through 60m.
-  endpoint/secrets update existing draft functions without uploading Flow JSON.
+  endpoint attach associates an existing deployed function and registers it with Meta (draft only).
+  endpoint/secrets update functions associated with drafts without uploading Flow JSON.
+  Function code, secrets and booking gates affect every Flow sharing that function.
   Remote commands accept --json, --kapso-key and --kapso-url. Writes may be partial.
 
 Local testing:

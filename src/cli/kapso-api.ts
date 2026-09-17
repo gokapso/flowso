@@ -19,11 +19,11 @@ export function kapsoApi(options: KapsoConnection, fetcher = globalThis.fetch) {
   const base = (options.kapsoUrl ?? process.env.KAPSO_API_URL ?? 'https://api.kapso.ai/platform/v1').replace(/\/+$/, '');
   const origin = new URL(base);
   if (!['http:', 'https:'].includes(origin.protocol) || !base.endsWith('/platform/v1')) throw new Error('Kapso URL must be an HTTP URL ending in /platform/v1');
-  async function request(path: string, body?: unknown, meta = false): Promise<Record<string, unknown>> {
+  async function request(path: string, body?: unknown, meta = false, method: 'GET' | 'POST' | 'PATCH' = body === undefined ? 'GET' : 'POST'): Promise<Record<string, unknown>> {
     let response: Response;
     try {
       response = await fetcher(`${meta ? base.replace(/\/platform\/v1$/, '/meta/whatsapp/v24.0') : base}${path}`, {
-        method: body === undefined ? 'GET' : 'POST', redirect: 'error', signal: AbortSignal.timeout(30_000),
+        method, redirect: 'error', signal: AbortSignal.timeout(30_000),
         headers: { 'X-API-Key': key!, 'Content-Type': 'application/json' },
         body: body === undefined ? undefined : JSON.stringify(body),
       });

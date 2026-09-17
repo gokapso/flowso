@@ -78,6 +78,7 @@ it('updates only named secrets and never compiles the Flow', async () => {
   expect(calls.filter(call => call.method === 'POST').map(call => call.url.pathname)).toEqual(['/platform/v1/functions/fn-id/secrets']);
   expect(calls[2]!.body).toEqual({ secret: { name: 'CAL_API_KEY', value: 'provider-secret' } });
   expect(result.output).not.toContain('provider-secret');
+  expect(JSON.parse(result.output)).toMatchObject({ functionId: 'fn-id', mutationScope: 'function', sharedFunctionNotice: expect.stringContaining('every Flow') });
 });
 it('deploys standalone function code and restores secrets without Flow compilation', async () => {
   vi.stubEnv('CAL_API_KEY', 'provider-secret');
@@ -123,4 +124,76 @@ it('can revoke the booking window after a draft was published', async () => {
   mock([{ data: { ...flow, status: 'published' } }, { status: 'deployed', function_id: 'fn-id' }, {}, {}]);
   expect((await cli('bookings', 'disable')).exitCode).toBe(0);
   expect(calls.at(-1)!.body.secret).toEqual({ name: 'CAL_ALLOW_BOOKINGS', value: '0' });
+});
+const attached = { function_id: 'new-fn', status: 'deployed', flow_has_encryption: true };
+const attachedFlow = { ...flow, data_endpoint_function_id: 'new-fn' };
+function attachResponses() {
+  return [{ data: flow }, { data: attached }, { data: attachedFlow }, { data: attached }, { endpoint_uri: flow.data_endpoint_url, status: 'DRAFT' }];
+}
+it('attaches and verifies an existing function without deploying, storing secrets, compiling or publishing', async () => {
+  mock(attachResponses());
+  const result = await cli('endpoint', 'attach', '--function-id', 'new-fn', '--json');
+  expect(result.exitCode).toBe(0);
+  expect(calls.filter(call => call.method !== 'GET')).toEqual([expect.objectContaining({ method: 'PATCH', body: { function_id: 'new-fn' } })]);
+  expect(calls[1]!.url.pathname).toBe('/platform/v1/whatsapp/flows/kapso-id/data_endpoint');
+  expect(JSON.parse(result.output)).toMatchObject({ registered: true, published: false, compiledFlow: false, functionId: 'new-fn', previousFunctionId: 'fn-id', mutationScope: 'flow-association' });
+});
+it.each([
+  ['published', { status: 'published' }], ['no phone', { phone_number_id: null }], ['no encryption', { flows_encryption_configured: false }],
+])('refuses attachment before any mutation: %s', async (_name, change) => {
+  mock([{ data: { ...flow, ...change as object } }]);
+  expect((await cli('endpoint', 'attach', '--function-id', 'new-fn')).exitCode).toBe(1);
+  expect(calls).toHaveLength(1); expect(calls[0]!.method).toBe('GET');
+});
+it.each([
+  [], ['--function-id', '../invalid'], ['--function-id', 'new-fn', '--data-endpoint', 'file.js'],
+  ['--function-id', 'new-fn', '--secret-env', 'CAL_API_KEY'], ['--function-id', 'new-fn', '--publish'],
+].map(args => ({ args })))('rejects invalid or conflicting attach options before any request: $args', async ({ args }) => {
+  mock([]);
+  expect((await cli('endpoint', 'attach', ...args)).exitCode).toBe(1); expect(calls).toHaveLength(0);
+});
+it('does not treat HTTP 200 with a warning as success or echo its contents', async () => {
+  mock([{ data: flow }, { data: { ...attached, warning: 'sensitive provider details' } }]);
+  const result = await cli('endpoint', 'attach', '--function-id', 'new-fn', '--json');
+  expect(result.exitCode).toBe(1); expect(result.output).toContain('warning'); expect(result.output).toContain('may already have changed');
+  expect(result.output).not.toContain('sensitive provider details'); expect(calls).toHaveLength(2);
+});
+it.each(['function', 'status', 'encryption', 'meta-uri', 'meta-status'])('fails attachment verification on readback mismatch: %s', async mismatch => {
+  const responses: unknown[] = attachResponses();
+  if (mismatch === 'function') responses[2] = { data: { ...attachedFlow, data_endpoint_function_id: 'wrong' } };
+  if (mismatch === 'status') responses[2] = { data: { ...attachedFlow, status: 'published' } };
+  if (mismatch === 'encryption') responses[2] = { data: { ...attachedFlow, flows_encryption_configured: false } };
+  if (mismatch === 'meta-uri') responses[4] = { endpoint_uri: 'https://wrong.test', status: 'DRAFT' };
+  if (mismatch === 'meta-status') responses[4] = { endpoint_uri: flow.data_endpoint_url, status: 'PUBLISHED' };
+  mock(responses);
+  const result = await cli('endpoint', 'attach', '--function-id', 'new-fn');
+  expect(result.exitCode).toBe(1); expect(result.output).toContain('may already have changed');
+});
+it('stops on a rejected attach and preserves only safe HTTP diagnostics', async () => {
+  const fetch = vi.fn().mockResolvedValueOnce(Response.json({ data: flow })).mockResolvedValueOnce(new Response('secret error', { status: 422 }));
+  vi.stubGlobal('fetch', fetch);
+  const result = await cli('endpoint', 'attach', '--function-id', 'new-fn');
+  expect(result.exitCode).toBe(1); expect(result.output).toContain('HTTP 422'); expect(result.output).not.toContain('secret error'); expect(fetch).toHaveBeenCalledTimes(2);
+});
+it.each([
+  { function_id: 'wrong', status: 'deployed', flow_has_encryption: true },
+  { function_id: 'new-fn', status: 'error', flow_has_encryption: true },
+  { function_id: 'new-fn', status: 'deployed', flow_has_encryption: false },
+])('requires an explicit attachment acknowledgement: $function_id / $status / $flow_has_encryption', async response => {
+  mock([{ data: flow }, { data: response }]);
+  const result = await cli('endpoint', 'attach', '--function-id', 'new-fn', '--json');
+  expect(result.exitCode).toBe(1); expect(calls).toHaveLength(2);
+  expect(JSON.parse(result.output).ok).toBe(false);
+});
+it.each([{ function_id: 'old-fn', status: 'deployed' }, { function_id: 'new-fn', status: 'error' }])('rejects a stale endpoint readback: $function_id / $status', async endpoint => {
+  mock([{ data: flow }, { data: attached }, { data: attachedFlow }, { data: endpoint }]);
+  expect((await cli('endpoint', 'attach', '--function-id', 'new-fn')).exitCode).toBe(1);
+  expect(calls).toHaveLength(4);
+});
+it('never retries an uncertain PATCH after a transport failure', async () => {
+  const fetch = vi.fn().mockResolvedValueOnce(Response.json({ data: flow })).mockRejectedValueOnce(new Error('sensitive connection details'));
+  vi.stubGlobal('fetch', fetch);
+  const result = await cli('endpoint', 'attach', '--function-id', 'new-fn');
+  expect(result.exitCode).toBe(1); expect(fetch).toHaveBeenCalledTimes(2);
+  expect(result.output).toContain('may already have changed'); expect(result.output).not.toContain('sensitive connection details');
 });

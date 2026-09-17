@@ -2,6 +2,8 @@ import { prepareKapsoEndpoint, readSecrets } from './kapso-endpoint';
 import { object, resourceId, kapsoFlow, type KapsoApi } from './kapso-api';
 import { guardedEndpoint } from './deployed-verify';
 
+const sharedFunctionNotice = 'Code, secrets and booking gates apply to every Flow using this function; a draft does not imply isolation.';
+
 async function endpointFunction(api: KapsoApi, flowId: string, options: { draftOnly?: boolean; deployedOnly?: boolean } = { draftOnly: true, deployedOnly: true }) {
   const flow = await kapsoFlow(api, flowId);
   if (options.draftOnly && flow.status !== 'draft') throw new Error('Function updates require a draft Flow');
@@ -17,7 +19,7 @@ export async function updateSecrets(api: KapsoApi, flowId: string, names: string
   if (!secrets.length) throw new Error('Provide at least one --secret-env NAME');
   const { functionId } = await endpointFunction(api, flowId);
   await setSecrets(api, functionId, secrets);
-  return { functionId, secrets: secrets.map(secret => secret.name), compiledFlow: false };
+  return { functionId, mutationScope: 'function', sharedFunctionNotice, secrets: secrets.map(secret => secret.name), compiledFlow: false };
 }
 export async function updateEndpoint(api: KapsoApi, flowId: string, file: string, names: string[]) {
   const endpoint = prepareKapsoEndpoint({ flowPath: '', to: 'kapso', dataEndpoint: file, secretEnv: names })!;
@@ -30,7 +32,7 @@ export async function updateEndpoint(api: KapsoApi, flowId: string, file: string
   const deployed = await api.request(`/whatsapp/flows/${flowId}/data_endpoint/deploy`, {});
   if (deployed.status !== 'deployed') throw new Error('Kapso did not confirm function deployment');
   await setSecrets(api, functionId, endpoint.secrets);
-  return { functionId, compiledFlow: false, secretNamesVerified: status === 'deployed',
+  return { functionId, mutationScope: 'function', sharedFunctionNotice, compiledFlow: false, secretNamesVerified: status === 'deployed',
     note: status === 'deployed' ? 'Function updated; Flow JSON and Meta registration unchanged'
       : 'Recovered function; prior secret names were unavailable. Verify every required secret was supplied.' };
 }
@@ -50,5 +52,5 @@ export async function bookingWindow(api: KapsoApi, flowId: string, action: strin
     { name: 'CAL_BOOKING_ENABLED_UNTIL', value: expiresAt },
     { name: 'CAL_ALLOW_BOOKINGS', value: action === 'enable' ? '1' : '0' },
   ]);
-  return { enabled: action === 'enable', expiresAt, note: 'Applies to this function; verification sessions remain read-only' };
+  return { functionId, mutationScope: 'function', sharedFunctionNotice, enabled: action === 'enable', expiresAt, note: 'Applies to this function; verification sessions remain read-only' };
 }

@@ -65,12 +65,14 @@ try {
   await writeFile(join(consumer, 'kapso-fixture.mjs'), `
     import { createServer } from 'node:http';
     const calls = [];
+    let functionId = 'function-123';
     const server = createServer(async (req, res) => {
       const chunks = []; for await (const chunk of req) chunks.push(chunk);
       const body = chunks.length ? JSON.parse(Buffer.concat(chunks)) : undefined;
       if (req.url === '/calls') { res.end(JSON.stringify(calls)); return; }
       calls.push({ path: req.url, method: req.method, body });
       let data;
+      if (req.method === 'PATCH' && req.url.endsWith('/data_endpoint')) functionId = body.function_id;
       if (req.url.startsWith('/meta/')) {
         data = req.url.endsWith('/messages') ? { messages: [{ id: 'wamid.fixture' }] } : {
           endpoint_uri: 'https://example.com/endpoint', validation_errors: [], status: 'draft',
@@ -87,8 +89,8 @@ try {
       if (req.url.endsWith('/versions')) data = { id: 'version-final', status: 'draft', validation_errors: null };
       else if (req.url.endsWith('/secrets')) data = req.method === 'GET' ? { secrets: [{name:'CAL_API_KEY'}, {name:'CAL_ALLOW_BOOKINGS'}] } : { message: 'Secret created successfully' };
       else if (req.url.endsWith('/setup_encryption')) data = { flows_encryption_configured: true };
-      else if (req.url.includes('/data_endpoint')) data = { function_id: 'function-123', status: 'deployed', flow_has_encryption: true };
-      else data = { id: 'flow-123', meta_flow_id: '12345', phone_number_id: 'package-phone', data_endpoint_function_id: 'function-123', data_endpoint_url: 'https://example.com/endpoint', status: 'draft', has_data_endpoint: true, flows_encryption_configured: true, preview_url: 'https://example.com/fresh-preview' };
+      else if (req.url.includes('/data_endpoint')) data = { function_id: functionId, status: 'deployed', flow_has_encryption: true };
+      else data = { id: 'flow-123', meta_flow_id: '12345', phone_number_id: 'package-phone', data_endpoint_function_id: functionId, data_endpoint_url: 'https://example.com/endpoint', status: 'draft', has_data_endpoint: true, flows_encryption_configured: true, preview_url: 'https://example.com/fresh-preview' };
       res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ data }));
     });
     server.listen(0, '127.0.0.1', () => console.log('http://127.0.0.1:' + server.address().port));
@@ -123,8 +125,13 @@ try {
   assert.equal(JSON.parse(command(['endpoint', 'deploy', ...remote, '--data-endpoint', 'booking/kapso-data-endpoint.js', '--secret-env', 'CAL_API_KEY', '--secret-env', 'CAL_ALLOW_BOOKINGS', '--json'])).compiledFlow, false);
   assert.equal(JSON.parse(command(['bookings', 'enable', ...remote, '--for', '1m', '--json'])).enabled, true);
   assert.equal(JSON.parse(command(['bookings', 'disable', ...remote, '--json'])).enabled, false);
+  const attachment = JSON.parse(command(['endpoint', 'attach', ...remote, '--function-id', 'shared-function-456', '--json']));
+  assert.equal(attachment.registered, true);
+  assert.equal(attachment.functionId, 'shared-function-456');
+  assert.equal(attachment.compiledFlow, false);
   const after = await fetch(kapso + '/calls').then(response => response.json());
   const operations = after.slice(requests.length);
+  assert.deepEqual(operations.filter(request => request.method === 'PATCH').map(request => request.body), [{ function_id: 'shared-function-456' }]);
   assert.ok(!operations.some(request => request.path.endsWith('/versions') || request.path.endsWith('/publish')));
   assert.ok(!operations.some(request => request.body?.data_exchange?.screen === 'REVIEW'));
   for (const key of Object.keys(env)) if (['CAL_', 'KAPSO_', 'WHATSAPP_'].some(prefix => key.startsWith(prefix))) delete env[key];
@@ -151,7 +158,7 @@ try {
   assert.equal(exchange.status, 200);
   const journal = (await readFile(join(consumer, 'preview.jsonl'), 'utf8')).trim().split('\n').map(line => JSON.parse(line));
   assert.ok(journal.some(record => record.kind === 'exchange.response' && record.response.screen === 'DETAILS'));
-  console.log(JSON.stringify({ ok: true, installedPackage: true, scenarios: report.tests.length, skill: true, catalog: true, previewAssets: true, kapsoDraftDeploy: true, kapsoOperations: true }));
+  console.log(JSON.stringify({ ok: true, installedPackage: true, scenarios: report.tests.length, skill: true, catalog: true, previewAssets: true, kapsoDraftDeploy: true, kapsoOperations: true, kapsoAttach: true }));
 } finally {
   for (const child of children) {
     if (child.exitCode === null && child.signalCode === null) {

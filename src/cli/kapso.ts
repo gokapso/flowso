@@ -69,6 +69,7 @@ export async function deployToKapso(
       const existing = await request(path, undefined, 'GET');
       if (existing.status !== 'draft') throw new Error('Endpoint deployment requires an existing draft; published flows are not changed');
       if (existing.data_endpoint_function_id) {
+        log(`Function ID: ${id(existing.data_endpoint_function_id)}. Updating code or secrets affects every Flow using this function; a draft does not imply isolation.`);
         stage = 'check existing function secrets';
         const existingSecrets = await request(`/functions/${encodeURIComponent(id(existing.data_endpoint_function_id))}/secrets`, undefined, 'GET');
         if (!Array.isArray(existingSecrets.secrets)) throw new Error('Kapso did not return the function secret names');

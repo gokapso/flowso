@@ -56,6 +56,37 @@ flowso bookings disable --to kapso --flow-id KAPSO_UUID
 
 Never advertise `expiry-v1` in a custom endpoint without implementing the deadline check. Old endpoints using only `CAL_ALLOW_BOOKINGS` must be upgraded first. No existing project is modified automatically by a CLI upgrade.
 
+## Attach an existing function to a draft
+
+Use this when the backend is already deployed in the same Kapso project and only the Flow-to-function association needs to change:
+
+```sh
+flowso endpoint attach --to kapso --flow-id KAPSO_UUID \
+  --function-id FUNCTION_UUID --json
+```
+
+The draft must already have a phone number and Flow encryption configured. Kapso rejects functions that are not deployed or belong to another project. The command calls `PATCH /whatsapp/flows/{flow_id}/data_endpoint` with `{function_id}` to attach and register with Meta in one request. It then reads back the Flow, its endpoint and Meta's endpoint URI/status. Success requires the requested deployed function, encryption, matching endpoint registration and draft status. It does not upload code, copy or modify secrets, compile Flow JSON, delete the previous function, rotate the endpoint secret or publish.
+
+`attach` rejects published Flows before writing because Kapso automatically republishes them on association changes. HTTP 200 with `data.warning` is treated as failure, not success. Any failed PATCH response or subsequent verification may follow an applied association; inspect the Flow before retrying. Flowso never silently retries or rolls back. Keep other operators from publishing the draft during this operation; the preflight/readback checks are not a server-side transaction.
+
+After attaching, run `flowso verify` if the backend supports its read-only contract, then `flowso preview-url` for the official interactive check. Attachment alone does not validate Flow JSON or prove the new backend implements that Flow's screens and data. If JSON/schema changes need compilation, use the existing draft version/deploy path and inspect Meta validation separately.
+
+Do not send `function_id` to `POST .../data_endpoint/register`: that endpoint ignores it and only registers the function already associated. The full `flowso deploy --data-endpoint ... --register-endpoint` path already calls register without a function ID and remains supported. See [Kapso's attach API](https://docs.kapso.ai/api/platform/v1/whatsapp-flows/attach-an-existing-data-endpoint-function) and [September 17, 2026 changes](https://docs.kapso.ai/changelog#sep-17-2026).
+
+### Shared functions: choose the scope deliberately
+
+| Operation | What changes |
+| --- | --- |
+| `endpoint attach` | One Flow's association and its registered Meta endpoint. |
+| `endpoint deploy` / full deploy with endpoint code | The associated function's code, affecting every Flow using it. |
+| `secrets set` | The function's credentials/configuration, affecting every Flow using it. |
+| `bookings enable` / `disable` | The function-wide booking gate, including other attached Flows. |
+| `verify` | Calls the associated function with a new read-only token; temporary session state may change. |
+
+Function mutation results include `functionId`, `mutationScope: "function"` and `sharedFunctionNotice`. The full deployment command also identifies the existing function's shared scope. These are scope disclosures, not proof that the CLI discovered every attached Flow. A draft can share a backend with a published Flow: draft-only checks do not isolate code, credentials or booking permission. Use a separate function for development when production must remain unaffected. Before changing a shared function, establish that all its consumers are in the user's authorized scope.
+
+A shared handler must support each attached Flow's schema and scope session state by Flow ID as well as token. The generated booking handler already uses that namespace. Kapso function logs/invocations span the function's consumers; correlate using Flow IDs and tokens instead of assuming everything belongs to the Flow used to fetch the logs.
+
 ## Update function code or secrets independently
 
 ```sh
@@ -69,7 +100,7 @@ flowso endpoint deploy --to kapso --flow-id KAPSO_UUID \
   --secret-env CAL_ALLOW_BOOKINGS --secret-env CAL_BOOKING_ENABLED_UNTIL
 ```
 
-Both target an existing draft function. Secret-only updates upsert the named values without deploying code. Code-only deployment does not upload Flow JSON, set up encryption, register the endpoint or recompile Meta. Include **all existing secrets**, including a disabled/expired booking gate, because the current Kapso code upload does not guarantee secret retention. The CLI reads secret names and refuses an incomplete set before writing. If a previous function deployment failed, Kapso may return no secret names: on recovery you must supply every required secret from your environment, since the CLI cannot reconstruct the old set. Never use a stale open booking window during redeployment.
+Both resolve the function associated with an existing draft Flow; that function may also serve other Flows. Secret-only updates upsert the named values without deploying code. Code-only deployment does not upload Flow JSON, set up encryption, register the endpoint or recompile Meta. Include **all existing secrets**, including a disabled/expired booking gate, because the current Kapso code upload does not guarantee secret retention. The CLI reads secret names and refuses an incomplete set before writing. If a previous function deployment failed, Kapso may return no secret names: on recovery you must supply every required secret from your environment, since the CLI cannot reconstruct the old set. Never use a stale open booking window during redeployment.
 
 Updates are separate remote writes, not a transaction. A failure may leave code or some secrets updated. Stop testing, inspect the function, correct the inputs, and retry; verify the result before using its preview. The CLI does not automatically retry sends or provider booking calls. Keep incompatible code/Flow schema changes on the full `deploy` path.
 

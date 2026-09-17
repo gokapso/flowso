@@ -230,6 +230,27 @@ deployment cannot be combined with `--publish`. Test the returned official previ
 Kapso invocations before publishing in a separate, explicitly requested step.
 See the bundled [deployment skill reference](skills/flowso/references/kapso-deploy.md).
 
+### Reuse an existing backend
+
+Once a compatible function is deployed in the same Kapso project, an agent can attach it to
+another draft without uploading its code or credentials again:
+
+```sh
+flowso endpoint attach --to kapso --flow-id KAPSO_UUID --function-id FUNCTION_UUID --json
+```
+
+The draft needs a phone number and encryption configured. Flowso associates the function,
+registers the endpoint with Meta, and verifies the association and Meta registration. It
+rejects published Flows to avoid automatic republication. Attachment does not compile Flow
+JSON; follow it with `verify` and an interactive preview, and check Meta validation when
+changing the schema.
+
+A shared function also shares code, secrets and booking permissions. Updating it through a
+draft affects every Flow using it, including published ones. Use a separate development
+function when production must remain unaffected. Read the
+[association and shared-function guide](skills/flowso/references/kapso-operations.md#attach-an-existing-function-to-a-draft)
+for operation scope, prerequisites and recovery after partial failures.
+
 ### Iterate on a Kapso draft
 
 Use `KAPSO_API_KEY`; `--flow-id` is the Kapso UUID. Flowso resolves the Meta ID automatically.
