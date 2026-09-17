@@ -52,3 +52,5 @@ Use the browser for layout, focus, and native widget checks; headless scenarios 
 Keep provider keys in environment variables, never in Flow JSON, scenarios, or committed logs. Trace output can contain attendee data and flow tokens. Prefer synthetic test records.
 
 The booking template uses a local Cal.com HTTP fixture by default. Read its README before configuring a real provider. Report separately: JSON validation, runtime scenarios, local provider-contract tests, live provider behavior, and official Meta preview. A local pass is not proof of Meta acceptance or a real calendar booking.
+
+For interactive deployed previews, Kapso sends, read-only deployed verification, temporary booking windows, structured errors and independent code/secret updates, read [references/kapso-operations.md](references/kapso-operations.md). Never enable booking writes or send a WhatsApp message without explicit user authorization.

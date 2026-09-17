@@ -58,6 +58,9 @@ try {
   const deployReference = await readFile(join(root, 'skills/flowso/references/kapso-deploy.md'), 'utf8');
   assert.equal(await readFile(join(consumer, 'offline-skill/references/kapso-deploy.md'), 'utf8'), deployReference);
   assert.ok(command(['skill']).includes(deployReference));
+  const operationsReference = await readFile(join(root, 'skills/flowso/references/kapso-operations.md'), 'utf8');
+  assert.ok(command(['skill']).includes(operationsReference));
+  assert.equal(await readFile(join(consumer, 'booking/.agents/skills/flowso/references/kapso-operations.md'), 'utf8'), operationsReference);
   // Exercise the installed Node CLI against a local Platform API contract fixture.
   await writeFile(join(consumer, 'kapso-fixture.mjs'), `
     import { createServer } from 'node:http';
@@ -68,11 +71,24 @@ try {
       if (req.url === '/calls') { res.end(JSON.stringify(calls)); return; }
       calls.push({ path: req.url, method: req.method, body });
       let data;
+      if (req.url.startsWith('/meta/')) {
+        data = req.url.endsWith('/messages') ? { messages: [{ id: 'wamid.fixture' }] } : {
+          endpoint_uri: 'https://example.com/endpoint', validation_errors: [], status: 'draft',
+          preview: { preview_url: 'https://business.facebook.com/preview/?token=fixture' }
+        };
+        res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(data)); return;
+      }
+      if (req.url.endsWith('/invoke')) {
+        const exchange = body.data_exchange;
+        const screen = exchange.action === 'INIT' ? 'DETAILS' : exchange.screen === 'DETAILS' || exchange.action === 'BACK' ? 'SLOTS' : 'REVIEW';
+        data = { version: '3.0', screen, data: { status: 'active', slots: [{ id: 'fixture-slot' }], flowso_verify: { protocol: 1, read_only: true, booking_gate: 'expiry-v1' } } };
+        res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(data)); return;
+      }
       if (req.url.endsWith('/versions')) data = { id: 'version-final', status: 'draft', validation_errors: null };
-      else if (req.url.endsWith('/secrets')) data = { message: 'Secret created successfully' };
+      else if (req.url.endsWith('/secrets')) data = req.method === 'GET' ? { secrets: [{name:'CAL_API_KEY'}, {name:'CAL_ALLOW_BOOKINGS'}] } : { message: 'Secret created successfully' };
       else if (req.url.endsWith('/setup_encryption')) data = { flows_encryption_configured: true };
       else if (req.url.includes('/data_endpoint')) data = { function_id: 'function-123', status: 'deployed', flow_has_encryption: true };
-      else data = { id: 'flow-123', status: 'draft', has_data_endpoint: true, flows_encryption_configured: true, preview_url: 'https://example.com/fresh-preview' };
+      else data = { id: 'flow-123', meta_flow_id: '12345', phone_number_id: 'package-phone', data_endpoint_function_id: 'function-123', data_endpoint_url: 'https://example.com/endpoint', status: 'draft', has_data_endpoint: true, flows_encryption_configured: true, preview_url: 'https://example.com/fresh-preview' };
       res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ data }));
     });
     server.listen(0, '127.0.0.1', () => console.log('http://127.0.0.1:' + server.address().port));
@@ -97,6 +113,20 @@ try {
   assert.equal(requests[7].path, '/platform/v1/whatsapp/flows/flow-123/versions');
   assert.deepEqual(requests[7].body.flow_json, requests[0].body.flow_json);
   assert.ok(!requests.some(request => request.path.includes('/publish')));
+  const remote = ['--to', 'kapso', '--flow-id', 'flow-123'];
+  const previewResult = JSON.parse(command(['preview-url', ...remote, '--json']));
+  assert.equal(new URL(previewResult.url).searchParams.get('flow_action'), 'data_exchange');
+  const verified = JSON.parse(command(['verify', ...remote, '--data', '{"date":"2030-06-10"}', '--json']));
+  assert.equal(verified.bookingWrites, false);
+  assert.match(command(['send', ...remote, '--to-number', '+15551234567']), /wamid.fixture/);
+  assert.equal(JSON.parse(command(['secrets', 'set', ...remote, '--secret-env', 'CAL_API_KEY', '--json'])).compiledFlow, false);
+  assert.equal(JSON.parse(command(['endpoint', 'deploy', ...remote, '--data-endpoint', 'booking/kapso-data-endpoint.js', '--secret-env', 'CAL_API_KEY', '--secret-env', 'CAL_ALLOW_BOOKINGS', '--json'])).compiledFlow, false);
+  assert.equal(JSON.parse(command(['bookings', 'enable', ...remote, '--for', '1m', '--json'])).enabled, true);
+  assert.equal(JSON.parse(command(['bookings', 'disable', ...remote, '--json'])).enabled, false);
+  const after = await fetch(kapso + '/calls').then(response => response.json());
+  const operations = after.slice(requests.length);
+  assert.ok(!operations.some(request => request.path.endsWith('/versions') || request.path.endsWith('/publish')));
+  assert.ok(!operations.some(request => request.body?.data_exchange?.screen === 'REVIEW'));
   for (const key of Object.keys(env)) if (['CAL_', 'KAPSO_', 'WHATSAPP_'].some(prefix => key.startsWith(prefix))) delete env[key];
   assert.equal(JSON.parse(command(['catalog', 'text-input', '--json'])).entry.component.type, 'TextInput');
   assert.equal(JSON.parse(command(['validate', 'booking/flow.json', '--json'])).ok, true);
@@ -121,7 +151,7 @@ try {
   assert.equal(exchange.status, 200);
   const journal = (await readFile(join(consumer, 'preview.jsonl'), 'utf8')).trim().split('\n').map(line => JSON.parse(line));
   assert.ok(journal.some(record => record.kind === 'exchange.response' && record.response.screen === 'DETAILS'));
-  console.log(JSON.stringify({ ok: true, installedPackage: true, scenarios: report.tests.length, skill: true, catalog: true, previewAssets: true, kapsoDraftDeploy: true }));
+  console.log(JSON.stringify({ ok: true, installedPackage: true, scenarios: report.tests.length, skill: true, catalog: true, previewAssets: true, kapsoDraftDeploy: true, kapsoOperations: true }));
 } finally {
   for (const child of children) {
     if (child.exitCode === null && child.signalCode === null) {

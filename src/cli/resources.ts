@@ -39,7 +39,8 @@ export async function resourceCommand(args: ParsedArgs, log: (line: string) => v
       // Printed instructions remain self-contained for agents without an installed skill folder.
       const scheduling = await readFile(resolve(root, 'skills/flowso/references/cal-com.md'), 'utf8');
       const deployment = await readFile(resolve(root, 'skills/flowso/references/kapso-deploy.md'), 'utf8');
-      log(`${instructions}\n${scenarios}\n${scheduling}\n${deployment}`);
+      const operations = await readFile(resolve(root, 'skills/flowso/references/kapso-operations.md'), 'utf8');
+      log(`${instructions}\n${scenarios}\n${scheduling}\n${deployment}\n${operations}`);
     }
   } else {
     if (args.positional.length !== 1 || Object.keys(args.flags).length) throw new Error('Usage: flowso init <directory>');

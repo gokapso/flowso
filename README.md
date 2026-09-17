@@ -367,3 +367,25 @@ Requires Node 20 or newer for the CLI and the endpoint client (uses `node:crypto
 validator and Vue renderer run in any modern browser.
 
 License: MIT.
+
+## Deployed Kapso development
+
+Use `KAPSO_API_KEY`; `--flow-id` is the Kapso UUID. Flowso resolves the Meta ID automatically.
+
+```sh
+flowso preview-url --to kapso --flow-id KAPSO_UUID --json
+flowso verify --to kapso --flow-id KAPSO_UUID \
+  --data '{"name":"Flowso Test","email":"flowso@example.test","date":"2030-06-10"}' --json
+# Only when a real WhatsApp test message is requested:
+flowso send --to kapso --flow-id KAPSO_UUID --to-number +15551234567
+# Only when real booking writes are authorized (draft, expiry-aware endpoint):
+flowso bookings enable --to kapso --flow-id KAPSO_UUID --for 10m
+flowso bookings disable --to kapso --flow-id KAPSO_UUID
+flowso secrets set --to kapso --flow-id KAPSO_UUID --secret-env CAL_API_KEY
+flowso endpoint deploy --to kapso --flow-id KAPSO_UUID \
+  --data-endpoint kapso-data-endpoint.js --secret-env CAL_API_KEY
+```
+
+`verify` requires an endpoint-enforced read-only contract, checks registration and exercises INIT, availability, REVIEW and BACK without confirmation. It invokes the deployed function directly; Meta's encrypted transport and UI still need an interactive check. `send` actually sends a WhatsApp message and uses the Flow's draft/published status automatically. Code-only deployment requires all existing secrets, not just the example key above. The starter supports expiring booking permission and distinct provider errors; existing projects must adopt its new guard explicitly.
+
+See [deployed operations and safety contracts](skills/flowso/references/kapso-operations.md) for setup, limitations, recovery and agent instructions.

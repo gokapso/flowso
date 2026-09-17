@@ -34,7 +34,7 @@ server.listen(port, '127.0.0.1', () => {
   const url = `http://127.0.0.1:${server.address().port}`;
   handler = createBookingHandler(createCalClient({ baseUrl: process.env.CAL_API_BASE_URL ?? `${url}/v2`, apiKey: process.env.CAL_API_KEY,
     eventTypeId: Number(process.env.CAL_EVENT_TYPE_ID ?? 123), timeZone: process.env.CAL_TIME_ZONE ?? 'UTC',
-    allowBookings: isMock || process.env.CAL_ALLOW_BOOKINGS === '1' }));
+    fixture: isMock, allowBookings: process.env.CAL_ALLOW_BOOKINGS === '1', bookingEnabledUntil: process.env.CAL_BOOKING_ENABLED_UNTIL }));
   console.log(`Booking endpoint: ${url}/flow (${isMock ? 'local Cal.com contract fixture' : 'configured scheduling API'})`);
 });
 server.on('error', error => { console.error(error.message); process.exitCode = 1; });

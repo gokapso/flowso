@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { formatIssue, validateFlowJson } from '../validator/index';
 import { parseArgs, type ParsedArgs } from './args';
 import { deployFlow } from './deploy';
+import { remoteCommand } from './remote-commands';
 import { sendFlow } from './send';
 import { createSimulatorServer } from './server';
 import { textFlag, textFlags, numberFlag, endpointOptions } from './options';
@@ -27,6 +28,12 @@ const help = `Usage:
   flowso catalog [component-id] [--json] list components or inspect a canonical snippet
   flowso deploy <flow.json> [options]
   flowso send --to-number <E.164> --flow-id <meta flow id> --phone-number-id <id> [options]
+  flowso preview-url --to kapso --flow-id <Kapso UUID> [--screen ID --data '{...}'] [--json]
+  flowso verify --to kapso --flow-id <Kapso UUID> --data '{...}' [--json]
+  flowso endpoint deploy --to kapso --flow-id <Kapso UUID> --data-endpoint <file> [--secret-env NAME ...]
+  flowso secrets set --to kapso --flow-id <Kapso UUID> --secret-env NAME [...]
+  flowso bookings enable --to kapso --flow-id <Kapso UUID> --for 10m
+  flowso bookings disable --to kapso --flow-id <Kapso UUID>
   flowso help
 
 Deploy options:
@@ -52,11 +59,13 @@ Deploy options:
   --skip-local-validation  Upload despite local validation errors
 
 Send options:
+  --to <meta|kapso>    Kapso uses KAPSO_API_KEY and resolves its Flow UUID automatically
+  --kapso-url <url>    Platform base URL; proxy requests use the same host
   --to-number <E.164>   Recipient phone number (required)
-  --flow-id <id>        Meta flow ID (required)
-  --phone-number-id <id>  Sender phone number ID (required)
-  --token <token>       Required (or WHATSAPP_ACCESS_TOKEN)
-  --draft              Send a draft flow (default: published)
+  --flow-id <id>        Meta ID, or Kapso UUID with --to kapso (required)
+  --phone-number-id <id>  Sender phone number ID (resolved from Flow for Kapso)
+  --token <token>       Required for Meta (or WHATSAPP_ACCESS_TOKEN)
+  --draft              Force draft mode (Kapso otherwise uses the Flow status)
   --body <text>        Message body (default: Test flow from flowso)
   --cta <label>        Button label (default: Open)
   --header <text>      Text header
@@ -64,6 +73,14 @@ Send options:
   --screen <SCREEN_ID>  Navigate to a screen (default: data_exchange)
   --data <json>        Initial data object (requires --screen)
                        A random flowso_ flow token is generated for each send
+
+Deployed operations:
+  verify requires the endpoint's read-only contract; never submits confirmation.
+  --input-screen, --availability-screen, --review-screen override DETAILS, SLOTS, REVIEW.
+  --data supplies availability input. No slots means the full smoke test cannot pass.
+  bookings enable requires an expiry-aware endpoint and --for 1m through 60m.
+  endpoint/secrets update existing draft functions without uploading Flow JSON.
+  Remote commands accept --json, --kapso-key and --kapso-url. Writes may be partial.
 
 Local testing:
   test and inspect accept --endpoint, --plaintext, --public-key and --timeout.
@@ -94,9 +111,13 @@ async function execute(args: ParsedArgs, log: (line: string) => void): Promise<C
   }
   if (args.command === 'init' || args.command === 'skill' || args.command === 'catalog') return resourceCommand(args, log);
   if (args.command === 'test' || args.command === 'inspect') return agentCommand(args, log);
+  if (['preview-url', 'verify', 'endpoint', 'secrets', 'bookings'].includes(args.command)) return remoteCommand(args, log);
   if (args.command === 'send') {
     if (args.positional.length) throw new Error('send does not accept a <flow.json> path');
+    const to = textFlag(args, 'to') ?? 'meta';
+    if (to !== 'meta' && to !== 'kapso') throw new Error('--to must be meta or kapso');
     return sendFlow({
+      to, kapsoKey: textFlag(args, 'kapso-key'), kapsoUrl: textFlag(args, 'kapso-url'),
       toNumber: textFlag(args, 'to-number'), flowId: textFlag(args, 'flow-id'),
       phoneNumberId: textFlag(args, 'phone-number-id'), token: textFlag(args, 'token'),
       draft: args.flags.draft === true, body: textFlag(args, 'body'), cta: textFlag(args, 'cta'),

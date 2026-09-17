@@ -9,6 +9,15 @@ export type KapsoEndpoint = {
   registerEndpoint: boolean;
 };
 
+export function readSecrets(names: string[]) {
+  return [...new Set(names)].map(name => {
+    if (!/^[A-Z_][A-Z0-9_]*$/.test(name)) throw new Error('--secret-env accepts an uppercase environment variable name only, never NAME=value');
+    const value = process.env[name];
+    if (value === undefined || value === '') throw new Error(`Missing environment variable: ${name}`);
+    return { name, value };
+  });
+}
+
 /** Resolve everything before the first remote write. Never execute endpoint source locally. */
 export function prepareKapsoEndpoint(options: DeployOptions): KapsoEndpoint | undefined {
   if (!options.dataEndpoint && !options.secretEnv?.length && !options.setupEncryption && !options.registerEndpoint) return undefined;
@@ -16,12 +25,7 @@ export function prepareKapsoEndpoint(options: DeployOptions): KapsoEndpoint | un
   if (!options.dataEndpoint) throw new Error('--secret-env, --setup-encryption and --register-endpoint require --data-endpoint');
   if (options.publish) throw new Error('Deploy and test the dynamic draft first; use --publish in a separate invocation');
   if (options.endpointUri) throw new Error('Use --register-endpoint with --data-endpoint, not --endpoint-uri');
-  const secrets = [...new Set(options.secretEnv ?? [])].map(name => {
-    if (!/^[A-Z_][A-Z0-9_]*$/.test(name)) throw new Error('--secret-env accepts an uppercase environment variable name only, never NAME=value');
-    const value = process.env[name];
-    if (value === undefined || value === '') throw new Error(`Missing environment variable: ${name}`);
-    return { name, value };
-  });
+  const secrets = readSecrets(options.secretEnv ?? []);
   const code = readFileSync(options.dataEndpoint, 'utf8');
   if (!code.trim()) throw new Error('The data endpoint file is empty');
   try {

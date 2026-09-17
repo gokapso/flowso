@@ -36,7 +36,7 @@ This journey stops at SLOTS and makes no booking POST. Empty availability is a v
 
 ## Verify an actual booking only when requested
 
-Use an appropriate test account, event type and attendee email. Cal.com may create calendar events and send notifications. Set `CAL_ALLOW_BOOKINGS=1` only for the requested booking test and restart the server. Create a separate live scenario: use a future date, choose a returned slot ID, confirm once and check DONE with a booking UID. Never use `demo-booking` or fixture-specific dates/errors as live expectations. Do not replay all six fixture journeys against the real API.
+Use an appropriate test account, event type and attendee email. Cal.com may create calendar events and send notifications. Set `CAL_ALLOW_BOOKINGS=1` and `CAL_BOOKING_ENABLED_UNTIL` to a future ISO timestamp at most 60 minutes ahead only for the requested booking test, then restart the server. The adapter checks expiry at every booking attempt; the boolean alone does not allow writes. For deployed Kapso functions use `flowso bookings enable --for 10m` as described in [kapso-operations.md](kapso-operations.md). Create a separate live scenario: use a future date, choose a returned slot ID, confirm once and check DONE with a booking UID. Never use `demo-booking` or fixture-specific dates/errors as live expectations. Do not replay all six fixture journeys against the real API.
 
 If the outcome is uncertain (timeout or provider failure during confirmation), inspect the provider before retrying; a timeout does not prove no booking was created. Confirm the returned booking exists in the provider. Agree on cleanup scope before cancelling anything. Disable booking writes again after the test.
 

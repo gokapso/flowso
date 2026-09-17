@@ -31,3 +31,5 @@ Deployment consists of separate remote writes, not a transaction. A failure stop
 Dynamic deployment rejects `--publish` in the same invocation. Review the official preview and Kapso function invocation logs before a separately requested publication. HTTP acceptance and draft status do not prove that the endpoint's provider calls work. If deployment fails, inspect the named stage in Kapso; response error bodies for dynamic requests are intentionally omitted because they may echo secrets or source code.
 
 References: [Kapso data endpoints](https://docs.kapso.ai/docs/whatsapp/flows/data-endpoint), [function secrets](https://docs.kapso.ai/api/platform/v1/functions/functions/create-function-secret).
+
+After deployment, use the [deployed operations reference](kapso-operations.md) for an interactive preview, read-only smoke test and separate function/secret updates. The booking starter includes a generated standalone endpoint; regenerate it after editing its source modules.

@@ -33,7 +33,7 @@ Files:
 
 ## Use your own scheduling development server
 
-Set `CAL_API_BASE_URL` to your server's `/v2` root, `CAL_EVENT_TYPE_ID` to an event type, and optionally `CAL_API_KEY` and `CAL_TIME_ZONE`. Run `node dev-server.mjs` with these variables. The fixture is disabled when a custom base URL is set. To allow actual booking POSTs, also set `CAL_ALLOW_BOOKINGS=1`.
+Set `CAL_API_BASE_URL` to your server's `/v2` root, `CAL_EVENT_TYPE_ID` to an event type, and optionally `CAL_API_KEY` and `CAL_TIME_ZONE`. Run `node dev-server.mjs` with these variables. The fixture is disabled when a custom base URL is set. To allow actual booking POSTs, also set `CAL_ALLOW_BOOKINGS=1` and `CAL_BOOKING_ENABLED_UNTIL` to an ISO timestamp no more than 60 minutes ahead, then restart the server. The deadline is checked before every booking. A boolean without a deadline keeps writes disabled.
 
 Use a test account and future dates when configuring `https://api.cal.com/v2`. Replace the fixture-specific expectations (dates, conflicts and `demo-booking`) with assertions appropriate to that account. Scenario runs call the endpoint for real; they are not a dry run of your provider.
 
@@ -56,3 +56,11 @@ credentials locally; the file is ignored by Git. Node 20.6+ supports
 for the real account. A successful result can contain no available slots; inspect the snapshot.
 Keep `scenarios.json` for the deterministic local fixture. Store temporary test reports under
 `artifacts/`, which is ignored by Git.
+
+## Kapso endpoint and deployed tests
+
+`kapso-data-endpoint.js` is a standalone Kapso handler generated from `errors.mjs`, `cal-client.mjs` and `handler.mjs`. After modifying them, run `node build-kapso-endpoint.mjs` before deploying. Use `flowso deploy` with this file, the environment secrets it reads (`CAL_API_KEY`, `CAL_EVENT_TYPE_ID`, optional `CAL_API_BASE_URL` / `CAL_TIME_ZONE`, and `CAL_ALLOW_BOOKINGS=0`), encryption setup and endpoint registration. The provider key is never bundled.
+
+See `.agents/skills/flowso/references/kapso-deploy.md` for initial deployment and `.agents/skills/flowso/references/kapso-operations.md` for `preview-url`, `verify`, bounded booking windows and independent code/secret updates. `flowso verify` tokens remain read-only even during an open booking window. Errors include `error_code` and safe `error_message` fields.
+
+The generated handler uses one-hour KV sessions with bounded write-rate retries. KV eventual consistency and concurrent confirmations still require a stronger session/idempotency design before production use. A timeout or a session-save failure after a booking POST must be reconciled with the provider before retrying.
