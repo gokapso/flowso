@@ -2,7 +2,7 @@
 import { onBeforeUnmount, onMounted, ref, shallowRef } from 'vue';
 import type { FlowJson } from '../src/schema/flow-json';
 import type { FlowDataEndpoint, RuntimeEvent, StartOptions } from '../src/runtime/types';
-import { validateFlowJson } from '../src/validator';
+import { formatIssue, validateFlowJson } from '../src/validator';
 import FlowPhone from '../src/vue/flow-phone.vue';
 
 const flow = shallowRef<FlowJson | null>(null);
@@ -33,10 +33,12 @@ function record(event: RuntimeEvent | { type: 'reload' }) {
   });
 }
 
+function openUrl(url: string) { window.open(url, '_blank', 'noopener,noreferrer'); }
+
 function apply(value: unknown) {
   const result = validateFlowJson(value);
   if (!result.valid) {
-    error.value = result.issues.filter(issue => issue.severity === 'error').map(issue => `${issue.path}: ${issue.message}`).join('\n');
+    error.value = result.issues.filter(issue => issue.severity === 'error').map(formatIssue).join('\n');
     flow.value = null;
     return;
   }
@@ -104,7 +106,7 @@ onBeforeUnmount(() => { stopped = true; stream?.close(); });
     <p v-if="logError" class="preview__notice" role="alert">{{ logError }}</p>
     <section v-if="error" class="preview__error" role="alert"><strong>Preview unavailable</strong><pre>{{ error }}</pre><span>Save the file to try again.</span></section>
     <div v-else-if="flow" class="preview__phone">
-      <FlowPhone ref="phone" :flow="flow" :endpoint="endpoint" :start-options="startOptions" :use-examples="false" :platform="platform" :debuggable="false" @event="record" />
+      <FlowPhone ref="phone" :flow="flow" :endpoint="endpoint" :start-options="startOptions" :use-examples="false" :platform="platform" :debuggable="false" @event="record" @open-url="openUrl" />
     </div>
   </main>
 </template>
