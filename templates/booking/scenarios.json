@@ -1,0 +1,450 @@
+{
+  "tests": [
+    {
+      "name": "availability to confirmed booking",
+      "steps": [
+        {
+          "expect": {
+            "screen": "DETAILS",
+            "status": "ready"
+          }
+        },
+        {
+          "fill": "name",
+          "value": "Ada Lovelace"
+        },
+        {
+          "fill": "email",
+          "value": "ada@example.test"
+        },
+        {
+          "fill": "date",
+          "value": "2030-06-10"
+        },
+        {
+          "submit": true,
+          "expect": {
+            "screen": "SLOTS",
+            "data": {
+              "has_slots": true
+            }
+          }
+        },
+        {
+          "fill": "slot",
+          "valueFrom": "/fields/slot/options/0/id"
+        },
+        {
+          "submit": true,
+          "expect": {
+            "screen": "REVIEW"
+          }
+        },
+        {
+          "submit": true,
+          "expect": {
+            "screen": "DONE"
+          }
+        },
+        {
+          "submit": true,
+          "expect": {
+            "status": "completed",
+            "completion": {
+              "booking_uid": "demo-booking"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "refresh availability when going back",
+      "steps": [
+        {
+          "expect": {
+            "screen": "DETAILS",
+            "status": "ready"
+          }
+        },
+        {
+          "fill": "name",
+          "value": "Ada Lovelace"
+        },
+        {
+          "fill": "email",
+          "value": "ada@example.test"
+        },
+        {
+          "fill": "date",
+          "value": "2030-06-10"
+        },
+        {
+          "submit": true,
+          "expect": {
+            "screen": "SLOTS",
+            "data": {
+              "has_slots": true
+            }
+          }
+        },
+        {
+          "fill": "slot",
+          "valueFrom": "/fields/slot/options/0/id"
+        },
+        {
+          "submit": true,
+          "expect": {
+            "screen": "REVIEW"
+          }
+        },
+        {
+          "back": true,
+          "expect": {
+            "screen": "SLOTS",
+            "fields": {
+              "slot": {
+                "value": "2030-06-10T09:00:00.000Z"
+              }
+            }
+          }
+        },
+        {
+          "fill": "slot",
+          "valueFrom": "/fields/slot/options/0/id"
+        },
+        {
+          "submit": true,
+          "expect": {
+            "screen": "REVIEW"
+          }
+        },
+        {
+          "submit": true,
+          "expect": {
+            "screen": "DONE"
+          }
+        },
+        {
+          "submit": true,
+          "expect": {
+            "status": "completed",
+            "completion": {
+              "booking_uid": "demo-booking"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "slot taken between availability and confirmation",
+      "steps": [
+        {
+          "expect": {
+            "screen": "DETAILS",
+            "status": "ready"
+          }
+        },
+        {
+          "fill": "name",
+          "value": "Ada Lovelace"
+        },
+        {
+          "fill": "email",
+          "value": "ada@example.test"
+        },
+        {
+          "fill": "date",
+          "value": "2030-06-10"
+        },
+        {
+          "submit": true,
+          "expect": {
+            "screen": "SLOTS",
+            "data": {
+              "has_slots": true
+            }
+          }
+        },
+        {
+          "fill": "slot",
+          "valueFrom": "/fields/slot/options/1/id"
+        },
+        {
+          "submit": true,
+          "expect": {
+            "screen": "REVIEW"
+          }
+        },
+        {
+          "submit": true,
+          "expect": {
+            "screen": "REVIEW",
+            "errorMessage": "That time was just booked. Go back and choose another."
+          }
+        },
+        {
+          "back": true,
+          "expect": {
+            "screen": "SLOTS",
+            "data": {
+              "has_slots": true
+            },
+            "errorMessage": null
+          }
+        },
+        {
+          "fill": "slot",
+          "valueFrom": "/fields/slot/options/0/id"
+        },
+        {
+          "submit": true,
+          "expect": {
+            "screen": "REVIEW"
+          }
+        },
+        {
+          "submit": true,
+          "expect": {
+            "screen": "DONE"
+          }
+        },
+        {
+          "submit": true,
+          "expect": {
+            "status": "completed",
+            "completion": {
+              "booking_uid": "demo-booking"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "no availability then change date",
+      "steps": [
+        {
+          "expect": {
+            "screen": "DETAILS",
+            "status": "ready"
+          }
+        },
+        {
+          "fill": "name",
+          "value": "Ada Lovelace"
+        },
+        {
+          "fill": "email",
+          "value": "ada@example.test"
+        },
+        {
+          "fill": "date",
+          "value": "2030-06-10"
+        },
+        {
+          "fill": "date",
+          "value": "2030-06-11"
+        },
+        {
+          "submit": true,
+          "expect": {
+            "screen": "SLOTS",
+            "data": {
+              "has_slots": false
+            },
+            "canSubmit": true,
+            "fields": {}
+          }
+        },
+        {
+          "back": true,
+          "expect": {
+            "screen": "DETAILS"
+          }
+        },
+        {
+          "fill": "date",
+          "value": "2030-06-10"
+        },
+        {
+          "submit": true,
+          "expect": {
+            "screen": "SLOTS",
+            "data": {
+              "has_slots": true
+            }
+          }
+        },
+        {
+          "fill": "slot",
+          "valueFrom": "/fields/slot/options/0/id"
+        },
+        {
+          "submit": true,
+          "expect": {
+            "screen": "REVIEW"
+          }
+        },
+        {
+          "submit": true,
+          "expect": {
+            "screen": "DONE"
+          }
+        },
+        {
+          "submit": true,
+          "expect": {
+            "status": "completed",
+            "completion": {
+              "booking_uid": "demo-booking"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "invalid email blocks navigation",
+      "steps": [
+        {
+          "expect": {
+            "screen": "DETAILS",
+            "status": "ready"
+          }
+        },
+        {
+          "fill": "name",
+          "value": "Ada Lovelace"
+        },
+        {
+          "fill": "email",
+          "value": "not-an-email"
+        },
+        {
+          "fill": "date",
+          "value": "2030-06-10"
+        },
+        {
+          "submit": true,
+          "expect": {
+            "screen": "DETAILS",
+            "fieldErrors": {
+              "email": "Enter a valid email"
+            }
+          }
+        },
+        {
+          "fill": "email",
+          "value": "ada@example.test"
+        },
+        {
+          "submit": true,
+          "expect": {
+            "screen": "SLOTS",
+            "data": {
+              "has_slots": true
+            }
+          }
+        },
+        {
+          "fill": "slot",
+          "valueFrom": "/fields/slot/options/0/id"
+        },
+        {
+          "submit": true,
+          "expect": {
+            "screen": "REVIEW"
+          }
+        },
+        {
+          "submit": true,
+          "expect": {
+            "screen": "DONE"
+          }
+        },
+        {
+          "submit": true,
+          "expect": {
+            "status": "completed",
+            "completion": {
+              "booking_uid": "demo-booking"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "upstream outage then recovery",
+      "steps": [
+        {
+          "expect": {
+            "screen": "DETAILS",
+            "status": "ready"
+          }
+        },
+        {
+          "fill": "name",
+          "value": "Ada Lovelace"
+        },
+        {
+          "fill": "email",
+          "value": "ada@example.test"
+        },
+        {
+          "fill": "date",
+          "value": "2030-06-10"
+        },
+        {
+          "fill": "date",
+          "value": "2030-06-12"
+        },
+        {
+          "submit": true,
+          "expect": {
+            "screen": "DETAILS",
+            "errorMessage": "Scheduling is temporarily unavailable. Try again."
+          }
+        },
+        {
+          "fill": "date",
+          "value": "2030-06-10",
+          "expect": {
+            "errorMessage": "Scheduling is temporarily unavailable. Try again."
+          }
+        },
+        {
+          "submit": true,
+          "expect": {
+            "screen": "SLOTS",
+            "data": {
+              "has_slots": true
+            }
+          }
+        },
+        {
+          "fill": "slot",
+          "valueFrom": "/fields/slot/options/0/id"
+        },
+        {
+          "submit": true,
+          "expect": {
+            "screen": "REVIEW"
+          }
+        },
+        {
+          "submit": true,
+          "expect": {
+            "screen": "DONE"
+          }
+        },
+        {
+          "submit": true,
+          "expect": {
+            "status": "completed",
+            "completion": {
+              "booking_uid": "demo-booking"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -46,4 +46,29 @@ describe('routing', () => {
     ] }));
     expect(result.issues).toEqual([]);
   });
+  it.each([
+    { A: ['B'], B: ['A'] },
+    { A: ['B'], B: ['C'], C: ['A'] },
+    { A: ['A'] },
+    { START: [], A: ['B'], B: ['A'] },
+  ])('rejects cycles including disconnected cycles and self loops: %j', routing => {
+    const result = validateFlowJson(flow({ routing_model: routing,
+      screens: Object.keys(routing).map(id => screen([footer()], { id })),
+    }));
+    const issues = result.issues.filter(issue => issue.error === 'INVALID_ROUTING_MODEL');
+    expect(result.valid).toBe(false);
+    expect(issues).toHaveLength(1);
+    expect(issues[0]?.message).toContain('Back navigation is implicit. Remove');
+  });
+
+  it('accepts a converging DAG regardless of screen-array order', () => {
+    for (const ids of [['A', 'B', 'C', 'D'], ['D', 'C', 'B', 'A']]) {
+      const result = validateFlowJson(flow({ routing_model: { A: ['B', 'C'], B: ['D'], C: ['D'], D: [] },
+        screens: ids.map(id => screen([footer()], { id })),
+      }));
+      expect(result.valid).toBe(true);
+      expect(result.issues.filter(issue => issue.error === 'INVALID_ROUTING_MODEL')).toEqual([]);
+    }
+  });
+
 });

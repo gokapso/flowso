@@ -18,8 +18,9 @@ const props = withDefaults(
     platform?: 'android' | 'ios';
     /** Hover toolbar on components to move or remove them; emits `edit`. */
     editable?: boolean;
+    debuggable?: boolean;
   }>(),
-  { endpoint: undefined, flowToken: undefined, startOptions: undefined, useExamples: true, strictRouting: true, dark: false, platform: 'android', editable: false },
+  { endpoint: undefined, flowToken: undefined, startOptions: undefined, useExamples: true, strictRouting: true, dark: false, platform: 'android', editable: false, debuggable: true },
 );
 
 const emit = defineEmits<{
@@ -74,7 +75,8 @@ defineExpose({ restart, state, rendered });
         <span v-else>×</span>
       </button>
       <div class="wa-phone__title">{{ rendered?.title || ' ' }}</div>
-      <button class="wa-phone__icon" type="button" aria-label="Menu" @click="showDebug = !showDebug">⋮</button>
+      <button v-if="debuggable" class="wa-phone__icon" type="button" aria-label="Menu" @click="showDebug = !showDebug">⋮</button>
+      <span v-else class="wa-phone__icon" aria-hidden="true" />
     </div>
 
     <div class="wa-phone__body">
@@ -82,17 +84,18 @@ defineExpose({ restart, state, rendered });
 
       <div v-else-if="status === 'completed' && state?.completion" class="wa-phone__completed">
         <div class="wa-phone__completed-title">Flow completed</div>
-        <div class="wa-phone__completed-caption">WhatsApp sends this back to your business as <code>nfm_reply.response_json</code>:</div>
-        <pre class="wa-phone__json">{{ JSON.stringify(JSON.parse(state.completion.responseJson), null, 2) }}</pre>
+        <div v-if="debuggable" class="wa-phone__completed-caption">WhatsApp sends this back to your business as <code>nfm_reply.response_json</code>:</div>
+        <pre v-if="debuggable" class="wa-phone__json">{{ JSON.stringify(JSON.parse(state.completion.responseJson), null, 2) }}</pre>
         <button class="wa-footer__button" type="button" @click="restart()">Restart</button>
       </div>
 
-      <template v-else-if="rendered">
+      <template v-else>
         <div v-if="state?.error" class="wa-phone__error">
           <strong>{{ state.error.kind }}</strong>: {{ state.error.message }}
           <button class="wa-phone__link" type="button" @click="restart()">Restart</button>
         </div>
-        <FlowScreen :screen="rendered" :loading="status === 'loading'" :editable="editable" @action="onAction" @input="onInput" @edit="(edit: ScreenEdit) => emit('edit', edit)" />
+        <div v-if="status === 'loading' && !rendered" class="wa-phone__empty" role="status">Loading…</div>
+        <FlowScreen v-if="rendered" :screen="rendered" :loading="status === 'loading'" :editable="editable" @action="onAction" @input="onInput" @edit="(edit: ScreenEdit) => emit('edit', edit)" />
       </template>
     </div>
 

@@ -1,11 +1,15 @@
+import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { formatIssue, validateFlowJson } from '../validator/index';
 import { parseArgs, type ParsedArgs } from './args';
 import { deployFlow } from './deploy';
 import { sendFlow } from './send';
-import { createSimulatorServer, type SimulatorServerOptions } from './server';
+import { createSimulatorServer } from './server';
+import { textFlag, textFlags, numberFlag, endpointOptions } from './options';
+import { agentCommand } from './agent-commands';
+import { resourceCommand } from './resources';
 
 export type CliResult = {
   exitCode: number;
@@ -14,7 +18,13 @@ export type CliResult = {
 
 const help = `Usage:
   flowso serve [flow.json] [options]     omit the file to start with a new flow in the browser
-  flowso validate <flow.json>
+  flowso preview <flow.json> [options]  phone-only preview with an agent-readable log
+  flowso validate <flow.json> [--json]
+  flowso inspect <flow.json> [--screen ID --data '{...}'] [--examples] [--json]
+  flowso test <flow.json> --scenario <tests.json> [--trace] [--json]
+  flowso init <directory>              scaffold a local booking project and agent skill
+  flowso skill [--install <directory>] print the skill or copy it to a skill directory
+  flowso catalog [component-id] [--json] list components or inspect a canonical snippet
   flowso deploy <flow.json> [options]
   flowso send --to-number <E.164> --flow-id <meta flow id> --phone-number-id <id> [options]
   flowso help
@@ -29,6 +39,12 @@ Deploy options:
   --name <name>         Flow name (default: file name without extension)
   --flow-id <id>        Update an existing draft (Meta ID for meta; Kapso UUID for kapso)
   --publish            Publish after uploading
+  --data-endpoint <file>  Upload and deploy a Kapso function (draft only)
+  --secret-env <NAME>   Repeat to upsert function secrets from environment variables
+  --setup-encryption   Configure phone encryption without rotating an existing key
+  --register-endpoint  Register the deployed function on the Flow
+                       These options require --to kapso and --data-endpoint;
+                       publish in a separate invocation after testing the draft.
   --endpoint-uri <url>  Data exchange endpoint URI
   --categories <a,b>    Comma-separated categories
   --preview            Fetch an interactive preview URL (default)
@@ -49,6 +65,18 @@ Send options:
   --data <json>        Initial data object (requires --screen)
                        A random flowso_ flow token is generated for each send
 
+Local testing:
+  test and inspect accept --endpoint, --plaintext, --public-key and --timeout.
+  Dynamic flows start with INIT by default; scenarios can override start mode.
+  Tests use real data, never __example__ fallback. Inspect can opt into --examples.
+  --json produces one JSON result on stdout, including failures.
+  --trace includes rendered snapshots and endpoint events (may contain test data).
+  --test <name> reruns one named scenario without replaying the whole suite.
+
+Preview options:
+  --log-file <path>     JSONL log (default: artifacts/flowso-preview-<id>.jsonl)
+  Endpoint and port options are shared with serve. Tail the printed log path.
+
 Serve options:
   --endpoint <url>       Data exchange endpoint
   --public-key <path>    PEM public key for encrypted exchange
@@ -59,46 +87,13 @@ Serve options:
   --open                Print the playground URL
   --help, -h            Show help`;
 
-function textFlag(args: ParsedArgs, name: string): string | undefined {
-  const value = args.flags[name];
-  if (value === undefined) return undefined;
-  if (typeof value !== 'string' || value.length === 0) throw new Error(`--${name} requires a value`);
-  return value;
-}
-
-function numberFlag(args: ParsedArgs, name: string, fallback: number, min: number, max: number): number {
-  const raw = textFlag(args, name);
-  const value = raw === undefined ? fallback : Number(raw);
-  if (!Number.isInteger(value) || value < min || value > max) {
-    throw new Error(`--${name} must be an integer between ${min} and ${max}`);
-  }
-  return value;
-}
-
-function endpointOptions(args: ParsedArgs): SimulatorServerOptions['endpoint'] {
-  const url = textFlag(args, 'endpoint');
-  const publicKey = textFlag(args, 'public-key');
-  const plaintext = args.flags.plaintext === true;
-  const timeoutMs = numberFlag(args, 'timeout', 10_000, 1, 2_147_483_647);
-  if (publicKey && plaintext) throw new Error('Choose either --public-key or --plaintext');
-  if (!url) {
-    if (publicKey || plaintext) throw new Error('--public-key and --plaintext require --endpoint');
-    return undefined;
-  }
-  const parsed = new URL(url);
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') throw new Error('--endpoint must be an HTTP URL');
-  if (!plaintext && !publicKey) throw new Error('--endpoint requires --public-key or --plaintext');
-  return {
-    url, mode: plaintext ? 'plaintext' : 'encrypted', timeoutMs,
-    publicKeyPem: publicKey ? readFileSync(resolve(publicKey), 'utf8') : undefined,
-  };
-}
-
 async function execute(args: ParsedArgs, log: (line: string) => void): Promise<CliResult> {
   if (args.command === 'help') {
     log(help);
     return { exitCode: 0 };
   }
+  if (args.command === 'init' || args.command === 'skill' || args.command === 'catalog') return resourceCommand(args, log);
+  if (args.command === 'test' || args.command === 'inspect') return agentCommand(args, log);
   if (args.command === 'send') {
     if (args.positional.length) throw new Error('send does not accept a <flow.json> path');
     return sendFlow({
@@ -110,6 +105,7 @@ async function execute(args: ParsedArgs, log: (line: string) => void): Promise<C
     });
   }
   if (args.positional.length > 1) throw new Error(`${args.command} accepts at most one <flow.json> path`);
+  if (args.command === 'preview' && args.positional.length !== 1) throw new Error('preview requires one <flow.json> path');
   if (args.command === 'validate' && args.positional.length !== 1) throw new Error('validate requires one <flow.json> path');
   const flowPath = args.positional[0] ? resolve(args.positional[0]) : undefined;
   if (args.command === 'deploy') {
@@ -126,6 +122,10 @@ async function execute(args: ParsedArgs, log: (line: string) => void): Promise<C
       flowId: textFlag(args, 'flow-id'),
       publish: args.flags.publish === true,
       endpointUri: textFlag(args, 'endpoint-uri'),
+      dataEndpoint: textFlag(args, 'data-endpoint'),
+      secretEnv: textFlags(args, 'secret-env'),
+      setupEncryption: args.flags['setup-encryption'] === true,
+      registerEndpoint: args.flags['register-endpoint'] === true,
       categories: textFlag(args, 'categories')?.split(',').map((value) => value.trim()).filter(Boolean),
       preview: args.flags['no-preview'] !== true,
       skipLocalValidation: args.flags['skip-local-validation'] === true,
@@ -134,14 +134,16 @@ async function execute(args: ParsedArgs, log: (line: string) => void): Promise<C
   if (flowPath) {
     const input: unknown = JSON.parse(readFileSync(flowPath, 'utf8'));
     const result = validateFlowJson(input);
-    for (const issue of result.issues) log(formatIssue(issue));
+    if (args.command === 'validate' && args.flags.json === true) log(JSON.stringify({ schemaVersion: 1, ok: result.valid, ...result }));
+    else for (const issue of result.issues) log(formatIssue(issue));
     if (args.command === 'validate') {
       return { exitCode: result.issues.some((issue) => issue.severity === 'error') ? 1 : 0 };
     }
   }
-  const staticDir = fileURLToPath(new URL('../../dist/playground/', import.meta.url));
+  const staticDir = resolve(dirname(fileURLToPath(import.meta.url)), '../../dist/playground');
+  const logFile = args.command === 'preview' ? resolve(textFlag(args, 'log-file') ?? `artifacts/flowso-preview-${randomUUID()}.jsonl`) : undefined;
   const server = createSimulatorServer({
-    flowPath, staticDir,
+    flowPath, staticDir, logFile,
     port: numberFlag(args, 'port', 4310, 0, 65535),
     host: textFlag(args, 'host') ?? '127.0.0.1',
     endpoint: endpointOptions(args), log,
@@ -150,7 +152,8 @@ async function execute(args: ParsedArgs, log: (line: string) => void): Promise<C
     log('Warning: playground assets are missing. Run `bun run build:playground`. The simulator API is available.');
   }
   const { url } = await server.start();
-  log(`Simulator running at ${url}`);
+  log(args.command === 'preview' ? `Preview running at ${url}/?view=preview` : `Simulator running at ${url}`);
+  if (logFile) log(`Preview log: ${logFile}`);
   return { exitCode: 0, server };
 }
 
@@ -158,7 +161,9 @@ export async function runCli(argv: string[], log: (line: string) => void = conso
   try {
     return await execute(parseArgs(argv), log);
   } catch (error) {
-    log(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    const message = error instanceof Error ? error.message : String(error);
+    if (argv.includes('--json')) log(JSON.stringify({ schemaVersion: 1, ok: false, error: { code: 'CLI_ERROR', message } }));
+    else log(`Error: ${message}`);
     return { exitCode: 1 };
   }
 }

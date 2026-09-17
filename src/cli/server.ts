@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+import { createPreviewLog } from './preview-log';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { readFileSync, watch, type FSWatcher } from 'node:fs';
 import { readFile, realpath } from 'node:fs/promises';
@@ -17,6 +19,7 @@ export type SimulatorServerOptions = {
     publicKeyPem?: string;
     timeoutMs?: number;
   };
+  logFile?: string;
   log?: (line: string) => void;
 };
 
@@ -56,7 +59,7 @@ function isExchange(value: unknown): value is DataExchangeRequest {
     && (value.data === undefined || isObject(value.data));
 }
 
-async function readRequest(request: IncomingMessage): Promise<DataExchangeRequest> {
+async function readBody(request: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = [];
   let size = 0;
   for await (const chunk of request) {
@@ -66,7 +69,6 @@ async function readRequest(request: IncomingMessage): Promise<DataExchangeReques
     chunks.push(buffer);
   }
   const value: unknown = JSON.parse(Buffer.concat(chunks).toString('utf8'));
-  if (!isExchange(value)) throw new Error('Expected a valid data exchange request');
   return value;
 }
 
@@ -98,6 +100,7 @@ export function createSimulatorServer(options: SimulatorServerOptions) {
   let heartbeat: ReturnType<typeof setInterval> | undefined;
   let transport = new AbortController();
   const endpoint = options.endpoint;
+  let trace: ReturnType<typeof createPreviewLog> | undefined;
   const hooks = {
     fetch: (input: string | URL | Request, init?: RequestInit) => globalThis.fetch(input, {
       ...init,
@@ -135,14 +138,33 @@ export function createSimulatorServer(options: SimulatorServerOptions) {
     }
     let payload: DataExchangeRequest;
     try {
-      payload = await readRequest(request);
+      const body = await readBody(request);
+      if (!isExchange(body)) throw new Error('Expected a valid data exchange request');
+      payload = body;
     } catch (error) {
       json(response, 400, { error: { kind: 'invalid_request', message: message(error) } });
       return;
     }
+    const requestId = randomUUID();
+    const sessionId = String(request.headers['x-flowso-session'] ?? 'unknown').slice(0, 100);
+    const startedAt = performance.now();
+    let httpStatus: number | null = null;
+    const destination = new URL(endpoint!.url);
+    trace?.({ kind: 'exchange.request', sessionId, requestId, method: 'POST', url: destination.origin + destination.pathname, transport: endpoint!.mode, request: payload });
+    const exchangeClient = trace ? createEndpointClient({
+      ...endpoint!, publicKeyPem: endpoint!.publicKeyPem!,
+      fetch: async (input, init) => {
+        const result = await hooks.fetch(input, init);
+        httpStatus = result.status;
+        return result;
+      },
+    }) : client;
     try {
-      json(response, 200, await client.exchange(payload));
+      const result = await exchangeClient.exchange(payload);
+      trace?.({ kind: 'exchange.response', sessionId, requestId, httpStatus, durationMs: Math.round(performance.now() - startedAt), response: result });
+      json(response, 200, result);
     } catch (error) {
+      trace?.({ kind: 'exchange.error', sessionId, requestId, httpStatus, durationMs: Math.round(performance.now() - startedAt), error: error instanceof EndpointError ? { kind: error.kind, message: error.message, status: error.status ?? null } : { kind: 'internal', message: 'Endpoint exchange failed' } });
       if (!(error instanceof EndpointError)) throw error;
       json(response, 502, { error: { kind: error.kind, message: error.message, status: error.status ?? null } });
     }
@@ -156,13 +178,24 @@ export function createSimulatorServer(options: SimulatorServerOptions) {
       json(response, 400, { error: { kind: 'invalid_request', message: 'Invalid URL' } });
       return;
     }
-    if (request.method === 'GET' && pathname === '/__sim/flow') {
+    if (request.method === 'POST' && pathname === '/__sim/trace' && trace) {
+      if (!request.headers['content-type']?.startsWith('application/json') || (request.headers.origin && request.headers.origin !== `http://${request.headers.host}`)) {
+        json(response, 403, { error: 'Expected same-origin JSON' }); return;
+      }
+      const body = await readBody(request);
+      if (!isObject(body) || typeof body.sessionId !== 'string' || body.sessionId.length > 100 || !isObject(body.event)
+        || !['start', 'navigate', 'back', 'update_data', 'complete', 'open_url', 'validation_failed', 'warning', 'error', 'reload'].includes(String(body.event.type))) {
+        json(response, 400, { error: 'Expected a runtime event and sessionId' }); return;
+      }
+      const written = trace({ kind: 'runtime', sessionId: body.sessionId, event: body.event });
+      json(response, written ? 200 : 500, { ok: written });
+    } else if (request.method === 'GET' && pathname === '/__sim/flow') {
       const endpointInfo = endpoint ? { configured: true, mode: endpoint.mode, url: endpoint.url } : { configured: false };
       if (!flowPath) {
         json(response, 200, { fileName: null, flow: null, endpoint: endpointInfo });
         return;
       }
-      json(response, 200, { fileName: basename(flowPath), flow: readFlow(flowPath), endpoint: endpointInfo });
+      json(response, 200, { fileName: basename(flowPath), flow: readFlow(flowPath), endpoint: endpointInfo, ...(trace ? { tracing: true } : {}) });
     } else if (request.method === 'GET' && pathname === '/__sim/events') {
       response.writeHead(200, {
         'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive',
@@ -188,6 +221,7 @@ export function createSimulatorServer(options: SimulatorServerOptions) {
   });
 
   async function stop(): Promise<void> {
+    trace?.({ kind: 'server.stop' });
     transport.abort();
     watcher?.close();
     watcher = undefined;
@@ -209,6 +243,10 @@ export function createSimulatorServer(options: SimulatorServerOptions) {
     if (server.listening) throw new Error('Simulator server is already started');
     transport = new AbortController();
     try {
+      if (options.logFile) {
+        trace = createPreviewLog(resolve(options.logFile), options.log ?? console.log);
+        trace({ kind: 'server.start', fileName: flowPath ? basename(flowPath) : null });
+      }
       if (flowPath) {
         watcher = watch(dirname(flowPath), (_event, fileName) => {
           if (fileName !== null && fileName !== basename(flowPath)) return;

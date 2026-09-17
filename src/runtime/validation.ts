@@ -40,6 +40,15 @@ export function validateRenderedInputs(nodes: RenderedNode[]): Record<string, st
     }
     if (isEmpty(value)) continue;
 
+    if (['Dropdown', 'RadioButtonsGroup', 'CheckboxGroup', 'ChipsSelector'].includes(node.type) && Array.isArray(props['data-source'])) {
+      const options = props['data-source'] as { id: string; enabled?: boolean }[];
+      const selected = Array.isArray(value) ? value : [value];
+      if (selected.some(id => !options.some(option => option.id === id && option.enabled !== false))) {
+        errors[node.name] = 'Choose an available option';
+        continue;
+      }
+    }
+
     if (node.type === 'DatePicker' || node.type === 'CalendarPicker') {
       const error = validateDates(node.type, value, props);
       if (error) {

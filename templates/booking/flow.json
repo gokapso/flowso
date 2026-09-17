@@ -1,0 +1,210 @@
+{
+  "version": "7.3",
+  "data_api_version": "3.0",
+  "routing_model": {
+    "DETAILS": [
+      "SLOTS"
+    ],
+    "SLOTS": [
+      "REVIEW"
+    ],
+    "REVIEW": [
+      "DONE"
+    ],
+    "DONE": []
+  },
+  "screens": [
+    {
+      "id": "DETAILS",
+      "title": "Book an appointment",
+      "data": {
+        "notice": {
+          "type": "string",
+          "__example__": "Choose a date to check availability."
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextBody",
+            "text": "${data.notice}"
+          },
+          {
+            "type": "TextInput",
+            "name": "name",
+            "label": "Full name",
+            "required": true,
+            "min-chars": 2
+          },
+          {
+            "type": "TextInput",
+            "name": "email",
+            "label": "Email",
+            "required": true,
+            "input-type": "email"
+          },
+          {
+            "type": "DatePicker",
+            "name": "date",
+            "label": "Date",
+            "required": true
+          },
+          {
+            "type": "Footer",
+            "label": "Find times",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": {
+                "name": "${form.name}",
+                "email": "${form.email}",
+                "date": "${form.date}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "SLOTS",
+      "title": "Choose a time",
+      "data": {
+        "slots": {
+          "type": "array",
+          "__example__": [
+            {
+              "id": "2030-06-10T09:00:00.000Z",
+              "title": "09:00 UTC"
+            }
+          ],
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "has_slots": {
+          "type": "boolean",
+          "__example__": true
+        },
+        "notice": {
+          "type": "string",
+          "__example__": "Available times"
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextBody",
+            "text": "${data.notice}"
+          },
+          {
+            "type": "If",
+            "condition": "${data.has_slots}",
+            "then": [
+              {
+                "type": "RadioButtonsGroup",
+                "name": "slot",
+                "label": "Available times",
+                "required": true,
+                "data-source": "${data.slots}"
+              }
+            ],
+            "else": [
+              {
+                "type": "TextCaption",
+                "text": "Go back and try another date."
+              }
+            ]
+          },
+          {
+            "type": "Footer",
+            "label": "Review booking",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": {
+                "slot": "${form.slot}"
+              }
+            },
+            "enabled": "${data.has_slots}"
+          }
+        ]
+      },
+      "refresh_on_back": true
+    },
+    {
+      "id": "REVIEW",
+      "title": "Review booking",
+      "data": {
+        "summary": {
+          "type": "string",
+          "__example__": "Your appointment details"
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextBody",
+            "text": "${data.summary}"
+          },
+          {
+            "type": "Footer",
+            "label": "Confirm booking",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "DONE",
+      "title": "Booking confirmed",
+      "data": {
+        "booking_uid": {
+          "type": "string",
+          "__example__": "demo-booking"
+        },
+        "start": {
+          "type": "string",
+          "__example__": "2030-06-10T09:00:00.000Z"
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Your appointment is confirmed"
+          },
+          {
+            "type": "TextBody",
+            "text": "${data.start}"
+          },
+          {
+            "type": "Footer",
+            "label": "Done",
+            "on-click-action": {
+              "name": "complete",
+              "payload": {
+                "booking_uid": "${data.booking_uid}",
+                "start": "${data.start}"
+              }
+            }
+          }
+        ]
+      },
+      "terminal": true,
+      "success": true
+    }
+  ]
+}

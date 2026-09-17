@@ -127,7 +127,7 @@ export function createFlowRuntime(options: FlowRuntimeOptions): FlowRuntime {
       screenData,
       formValues,
       fieldErrors: { ...state.fieldErrors, [screenId]: {} },
-      errorMessage: null,
+      errorMessage: typeof data.error_message === 'string' ? data.error_message : null,
       error: null,
     });
   }
