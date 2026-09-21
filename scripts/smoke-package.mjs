@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
-import { chmod, mkdtemp, mkdir, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdtemp, mkdir, readFile, readdir, realpath, rename, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -37,12 +37,16 @@ async function start(command, args, cwd, match) {
 try {
   const archive = join(directory, 'flowso.tgz');
   run('bun', ['run', 'build'], root);
-  run('bun', ['pm', 'pack', '--filename', archive, '--quiet'], root);
+  const packed = JSON.parse(run('npm', ['pack', '--ignore-scripts', '--pack-destination', directory, '--json'], root));
+  await rename(join(directory, packed[0].filename), archive);
   const consumer = join(directory, 'consumer');
   await mkdir(consumer);
   await writeFile(join(consumer, 'package.json'), '{"name":"flowso-package-check","private":true,"type":"module"}');
   run('bun', ['add', archive], consumer);
   const cli = join(consumer, 'node_modules/flowso/dist/cli/main.js');
+  const installedManifest = JSON.parse(await readFile(join(consumer, 'node_modules/flowso/package.json'), 'utf8'));
+  assert.equal(installedManifest.bin.flowso, 'dist/cli/main.js');
+  assert.match(run(join(consumer, 'node_modules/.bin/flowso'), ['help'], consumer), /flowso publish/);
   const command = (args, expectedStatus = 0) => run(process.execPath, [cli, ...args], consumer, expectedStatus);
   // Exercise the packaged npm lifecycle script: it may print, but must not configure agents.
   const beforeInstallHint = await readdir(consumer);
@@ -58,8 +62,8 @@ try {
   const originalPath = env.PATH;
   env.PATH = probeBin + ':' + originalPath;
   try {
-    assert.deepEqual(JSON.parse(command(['skill', 'install'])), { args: ['skills', 'add', 'gokapso/flowso', '--skill', 'flowso'], cwd: await realpath(consumer) });
-    assert.deepEqual(JSON.parse(command(['skill', 'install', '--global'])).args, ['skills', 'add', 'gokapso/flowso', '--skill', 'flowso', '--global']);
+    assert.deepEqual(JSON.parse(command(['skill', 'install'])), { args: ['skills', 'add', join(await realpath(consumer), 'node_modules/flowso/skills/flowso'), '--skill', 'flowso'], cwd: await realpath(consumer) });
+    assert.deepEqual(JSON.parse(command(['skill', 'install', '--global'])).args, ['skills', 'add', join(await realpath(consumer), 'node_modules/flowso/skills/flowso'), '--skill', 'flowso', '--global']);
     env.FLOWSO_PROBE_EXIT = '7';
     command(['skill', 'install'], 7);
   } finally { env.PATH = originalPath; delete env.FLOWSO_PROBE_EXIT; }

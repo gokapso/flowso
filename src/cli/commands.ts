@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { formatIssue, validateFlowJson } from '../validator/index';
 import { parseArgs, type ParsedArgs } from './args';
 import { deployFlow } from './deploy';
+import { publishFlow } from './publish';
 import { remoteCommand } from './remote-commands';
 import { sendFlow } from './send';
 import { createSimulatorServer } from './server';
@@ -27,6 +28,7 @@ const help = `Usage:
   flowso skill install [--global]      open the standard skills installer and agent picker
   flowso skill [--install <directory>] print the skill or copy it to a skill directory
   flowso catalog [component-id] [--json] list components or inspect a canonical snippet
+  flowso publish --flow-id <Meta Flow ID> [--token <token>]
   flowso deploy <flow.json> [options]
   flowso send --to-number <E.164> --flow-id <meta flow id> --phone-number-id <id> [options]
   flowso preview-url --to kapso --flow-id <Kapso UUID> [--screen ID --data '{...}'] [--json]
@@ -116,6 +118,11 @@ async function execute(args: ParsedArgs, log: (line: string) => void): Promise<C
   if (args.command === 'init' || args.command === 'skill' || args.command === 'catalog') return resourceCommand(args, log);
   if (args.command === 'test' || args.command === 'inspect') return agentCommand(args, log);
   if (['preview-url', 'verify', 'endpoint', 'secrets', 'bookings'].includes(args.command)) return remoteCommand(args, log);
+  if (args.command === 'publish') {
+    if (args.positional.length) throw new Error('publish does not accept a file; it publishes the uploaded Meta draft');
+    if (textFlag(args, 'to') && textFlag(args, 'to') !== 'meta') throw new Error('publish currently supports --to meta only');
+    return publishFlow({ flowId: textFlag(args, 'flow-id'), token: textFlag(args, 'token'), log });
+  }
   if (args.command === 'send') {
     if (args.positional.length) throw new Error('send does not accept a <flow.json> path');
     const to = textFlag(args, 'to') ?? 'meta';

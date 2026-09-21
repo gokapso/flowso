@@ -30,7 +30,7 @@ export type DeployOptions = {
   log?: (line: string) => void;
 };
 
-function createWireClient(token: string): DeployClient {
+function createWireClient(token: string, uploaded: (flowId: string) => void): DeployClient {
   const client = new WhatsAppClient({ accessToken: token });
   return { flows: { async deploy(flowJson, options) {
     // SDK 0.3.0 deploy/create/updateAsset({ json }) enforce camelCase, rejecting
@@ -59,6 +59,7 @@ function createWireClient(token: string): DeployClient {
       validationErrors = result.validationErrors;
     }
     if (!flowId) throw new Error('Unable to resolve Flow ID after deployment');
+    uploaded(flowId);
     // Keep Meta's validation details visible; publish/preview can otherwise
     // throw and hide the upload response when the asset is invalid.
     if (validationErrors?.length) return { flowId, validationErrors };
@@ -121,7 +122,12 @@ export async function deployFlow(
         flowId: options.flowId, publish: options.publish, flowJson, log, endpoint,
       }, deps);
     }
-    const client = (deps.createClient ?? createWireClient)(token!);
+    let reportedId = false;
+    const client = deps.createClient ? deps.createClient(token!) : createWireClient(token!, (flowId) => {
+      reportedId = true;
+      log(`Flow ID: ${flowId}`);
+      log(`Upload complete. Reuse --flow-id ${flowId} when updating this draft. To publish without uploading again: flowso publish --flow-id ${flowId}`);
+    });
     const result = await client.flows.deploy(flowJson as Record<string, unknown>, {
       wabaId: wabaId!,
       name: options.name ?? basename(options.flowPath, extname(options.flowPath)),
@@ -131,12 +137,17 @@ export async function deployFlow(
       categories: options.categories,
       preview: options.preview ?? true,
     });
-    log(`Flow ID: ${result.flowId}`);
+    if (!reportedId) log(`Flow ID: ${result.flowId}`);
     if (result.previewUrl) log(`Preview: ${result.previewUrl}`);
     for (const error of result.validationErrors ?? []) log(formatMetaError(error));
     const hasErrors = Boolean(result.validationErrors?.length);
     if (!options.publish || hasErrors) log('The flow is still a draft.');
-    log('To send a draft to a phone, use client.messages.sendInteractiveFlow({ phoneNumberId, to, bodyText, parameters: { flowId, flowCta: "Open", mode: "draft", flowAction: "navigate", flowActionPayload: { screen: "<START_SCREEN_ID>" } } }).');
+    if (!hasErrors) {
+      if (options.publish) log('The flow is published.');
+      const flow = flowJson as { data_api_version?: string; screens?: Array<{ id?: string }> };
+      const screen = !flow.data_api_version && flow.screens?.[0]?.id;
+      log(`Send: flowso send --flow-id ${result.flowId} --phone-number-id <PHONE_ID> --to-number <E.164>${options.publish ? '' : ' --draft'}${screen ? ` --screen ${screen}` : ''}`);
+    }
     return { exitCode: hasErrors ? 1 : 0 };
   } catch (error) {
     log(`Error: ${error instanceof Error ? error.message : String(error)}`);

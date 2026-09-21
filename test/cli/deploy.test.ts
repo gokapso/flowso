@@ -63,7 +63,7 @@ describe('deployFlow', () => {
       flowId: undefined, endpointUri: undefined, categories: undefined,
     });
     expect(log).toHaveBeenCalledWith('The flow is still a draft.');
-    expect(log).toHaveBeenCalledWith(expect.stringContaining('mode: "draft"'));
+    expect(log).toHaveBeenCalledWith(expect.stringContaining(' --draft'));
   });
 
   it('passes wire-format JSON unchanged and all deployment options', async () => {
@@ -259,4 +259,14 @@ describe('CLI deploy and SDK wire upload', () => {
     expect(fetch).toHaveBeenCalledOnce();
     expect(log).toHaveBeenCalledWith('META INVALID_PROPERTY at $.screens[0] (line 5, column 3): Invalid action');
   });
+});
+
+it.each(['publish', 'preview'])('retains the uploaded Flow ID when %s fails', async stage => {
+  const fetch = mockHttp({ id: 'created-flow', success: true });
+  fetch.mockRejectedValueOnce(new Error('Remote failure'));
+  const log = vi.fn();
+  expect(await runCli(['deploy', fixturePath, '--token', token, '--waba', wabaId,
+    ...(stage === 'publish' ? ['--publish'] : [])], log)).toEqual({ exitCode: 1 });
+  expect(log).toHaveBeenCalledWith('Flow ID: created-flow');
+  expect(log).toHaveBeenCalledWith(expect.stringContaining('flowso publish --flow-id created-flow'));
 });

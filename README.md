@@ -154,8 +154,8 @@ flowso skill --install .agents/skills/flowso
 
 This copies the bundled skill and references without overwriting an existing directory.
 `flowso init` includes that bundle automatically. `flowso skill` prints it without writing
-files. The GitHub skill installer uses the repository version; the offline copy matches
-the installed CLI. To develop the skill itself, install from your checkout with
+files. `flowso skill install` and the offline copy both use the skill bundled with the installed CLI.
+To install the version from GitHub directly, run `npx skills add gokapso/flowso --skill flowso`. To develop the skill itself, install from your checkout with
 `bunx skills add /path/to/flowso --skill flowso`.
 
 ## Deploy after local tests pass
@@ -181,14 +181,31 @@ export WHATSAPP_WABA_ID=1234567890
 
 npx flowso validate my-flow.json                  # local diagnostics before uploading
 npx flowso deploy my-flow.json --name my-flow     # draft on Meta + interactive preview URL
-npx flowso deploy my-flow.json --flow-id <FLOW_ID> --publish   # iterate, then publish
-npx flowso send --to-number +15551234567 --flow-id <FLOW_ID> --phone-number-id <PHONE_ID> --draft
+npx flowso deploy my-flow.json --flow-id <FLOW_ID> # update the existing draft
+npx flowso publish --flow-id <FLOW_ID>            # publish the uploaded Meta draft
+npx flowso send --to-number +15551234567 --flow-id <FLOW_ID> --phone-number-id <PHONE_ID> --screen <FIRST_SCREEN_ID>
 ```
 
 `deploy` uploads the JSON unchanged, prints Meta's validation errors with their JSON paths, and
 returns a preview URL you can open or share. `send` delivers the flow to a phone as a WhatsApp
 message; use `--draft` until the flow is published. Flows with a data endpoint also need
 `--endpoint-uri` and the encryption key registered on the phone number.
+
+For static Flows, pass `--screen <FIRST_SCREEN_ID>` to send with `navigate`. For dynamic
+Flows, omit `--screen` to start with `data_exchange`. Add `--draft` when testing an unpublished
+Flow. A successful send response means Meta accepted the message; confirm delivery separately.
+
+`flowso publish` currently supports Meta only. It checks the remote status, publishes without
+uploading JSON again, and verifies `PUBLISHED`. Running it for an already published Flow makes
+no changes. `deploy --publish` remains available to upload and publish together. After upload,
+the CLI prints the Flow ID before attempting publication or preview, so partial failures do not
+lose the ID. Reuse that ID instead of creating another Flow.
+
+Flowso does not automatically load `.env.local`. Export credentials into the shell before
+running the CLI; keep local env files out of Git. Never put access tokens in Flow JSON.
+Management and messaging are separate permissions: successfully listing numbers or creating
+a Flow does not prove send access. Check both the token scopes and the app/system user's
+access to the intended WABA. Authorization errors are not proof that an ID is incorrect.
 
 ### Deploying through Kapso instead
 

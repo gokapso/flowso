@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { EventEmitter } from 'node:events';
 import { spawn } from 'node:child_process';
 import { afterEach, expect, it, vi } from 'vitest';
@@ -17,7 +18,7 @@ it.each([false, true])('opens the standard installer with inherited terminal, gl
   const log = vi.fn();
   expect(await runCli(['skill', 'install', ...(global ? ['--global'] : [])], log)).toEqual({ exitCode: 0 });
   expect(spawn).toHaveBeenCalledExactlyOnceWith(process.platform === 'win32' ? 'npx.cmd' : 'npx',
-    ['skills', 'add', 'gokapso/flowso', '--skill', 'flowso', ...(global ? ['--global'] : [])],
+    ['skills', 'add', fileURLToPath(new URL('../../skills/flowso', import.meta.url)), '--skill', 'flowso', ...(global ? ['--global'] : [])],
     { stdio: 'inherit', shell: process.platform === 'win32' });
   expect(log).not.toHaveBeenCalled();
 });

@@ -1,5 +1,5 @@
 export type ParsedArgs = {
-  command: 'serve' | 'preview' | 'validate' | 'deploy' | 'send' | 'test' | 'inspect' | 'init' | 'skill' | 'catalog' | 'preview-url' | 'verify' | 'endpoint' | 'secrets' | 'bookings' | 'help';
+  command: 'serve' | 'preview' | 'validate' | 'deploy' | 'publish' | 'send' | 'test' | 'inspect' | 'init' | 'skill' | 'catalog' | 'preview-url' | 'verify' | 'endpoint' | 'secrets' | 'bookings' | 'help';
   positional: string[];
   flags: Record<string, string | string[] | boolean>;
 };
@@ -20,7 +20,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
   let index = 0;
   const command = argv[0];
   if (command && !command.startsWith('-')) {
-    if (!['serve', 'preview', 'validate', 'deploy', 'send', 'help', 'test', 'inspect', 'init', 'skill', 'catalog', 'preview-url', 'verify', 'endpoint', 'secrets', 'bookings'].includes(command)) {
+    if (!['serve', 'preview', 'validate', 'deploy', 'publish', 'send', 'help', 'test', 'inspect', 'init', 'skill', 'catalog', 'preview-url', 'verify', 'endpoint', 'secrets', 'bookings'].includes(command)) {
       throw new Error(`Unknown command: ${command}`);
     }
     result.command = command as ParsedArgs['command'];

@@ -2,3 +2,8 @@ dist
 tmp
 node_modules
 examples/public.pem
+
+.env
+.env.*
+!.env.example
+artifacts/

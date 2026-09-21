@@ -4,7 +4,9 @@
   "description": "Local WhatsApp Flows simulator: Flow JSON runtime, validator, Meta-compatible endpoint client and Vue renderer",
   "license": "MIT",
   "type": "module",
-  "sideEffects": false,
+  "sideEffects": [
+    "**/*.css"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -55,9 +57,10 @@
     "build:lib": "vite build --config vite.lib.config.ts",
     "build:types": "vue-tsc --declaration --emitDeclarationOnly -p tsconfig.build.json",
     "cli": "bun src/cli/main.ts",
-    "prepublishOnly": "bun run test && bun run build",
+    "prepublishOnly": "bun run release:check",
     "test:package": "node scripts/smoke-package.mjs",
-    "postinstall": "node scripts/postinstall.cjs"
+    "postinstall": "node scripts/postinstall.cjs",
+    "release:check": "bun run typecheck && bun run typecheck:vue && bun run test && bun run test:package"
   },
   "peerDependencies": {
     "vue": "^3.5.0"
@@ -85,7 +88,7 @@
     "vue-tsc": "^2.2.0"
   },
   "bin": {
-    "flowso": "./dist/cli/main.js"
+    "flowso": "dist/cli/main.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -94,7 +97,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/gokapso/flowso"
+    "url": "git+https://github.com/gokapso/flowso.git"
   },
   "keywords": [
     "whatsapp",
