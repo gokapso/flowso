@@ -53,7 +53,7 @@ node dev-server.mjs
 ```
 
 The starter includes a four-screen dynamic flow, an HTTP data endpoint, a local Cal.com
-contract fixture, six repeatable journeys, and the skill in `.agents/skills/flowso`.
+contract fixture, seven repeatable journeys, and the skill in `.agents/skills/flowso`.
 It exercises booking, Back/refresh, slot conflicts, no availability, invalid input and provider
 outage recovery. The fixture creates no real bookings. The agent can replace the adapter with
 your integration or connect Flowso to an existing development server.
@@ -76,7 +76,7 @@ With the development server running, the agent uses another terminal in the proj
 # Inspect the actual initial response, without sample-data fallback
 flowso inspect flow.json --endpoint http://127.0.0.1:4312/flow --plaintext --json
 
-# Replay the starter's six journeys
+# Replay the starter's seven journeys
 flowso test flow.json --scenario scenarios.json --endpoint http://127.0.0.1:4312/flow --plaintext --json
 
 # Diagnose one failing journey with snapshots and endpoint events
@@ -225,7 +225,7 @@ flowso deploy flow.json --to kapso \
   --data-endpoint kapso-data-endpoint.js \
   --secret-env CAL_API_KEY \
   --secret-env CAL_API_BASE_URL \
-  --secret-env CAL_EVENT_TYPE_ID \
+  --secret-env CAL_EVENT_TYPE_IDS \
   --secret-env CAL_TIME_ZONE \
   --secret-env CAL_ALLOW_BOOKINGS \
   --setup-encryption --register-endpoint
@@ -285,7 +285,7 @@ Use `KAPSO_API_KEY`; `--flow-id` is the Kapso UUID. Flowso resolves the Meta ID 
 ```sh
 flowso preview-url --to kapso --flow-id KAPSO_UUID --json
 flowso verify --to kapso --flow-id KAPSO_UUID \
-  --data '{"name":"Flowso Test","email":"flowso@example.test","date":"2030-06-10"}' --json
+  --data '{"name":"Flowso Test","email":"flowso@example.test","date":"2030-06-10","event_type":"101"}' --json
 # Only when a real WhatsApp test message is requested:
 flowso send --to kapso --flow-id KAPSO_UUID --to-number +15551234567
 # Only when real booking writes are authorized (draft, expiry-aware endpoint):

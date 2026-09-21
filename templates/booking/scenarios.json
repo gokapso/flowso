@@ -10,6 +10,10 @@
           }
         },
         {
+          "fill": "event_type",
+          "valueFrom": "/fields/event_type/options/0/id"
+        },
+        {
           "fill": "name",
           "value": "Ada Lovelace"
         },
@@ -65,6 +69,10 @@
             "screen": "DETAILS",
             "status": "ready"
           }
+        },
+        {
+          "fill": "event_type",
+          "valueFrom": "/fields/event_type/options/0/id"
         },
         {
           "fill": "name",
@@ -143,6 +151,10 @@
             "screen": "DETAILS",
             "status": "ready"
           }
+        },
+        {
+          "fill": "event_type",
+          "valueFrom": "/fields/event_type/options/0/id"
         },
         {
           "fill": "name",
@@ -229,6 +241,10 @@
           }
         },
         {
+          "fill": "event_type",
+          "valueFrom": "/fields/event_type/options/0/id"
+        },
+        {
           "fill": "name",
           "value": "Ada Lovelace"
         },
@@ -311,6 +327,10 @@
           }
         },
         {
+          "fill": "event_type",
+          "valueFrom": "/fields/event_type/options/0/id"
+        },
+        {
           "fill": "name",
           "value": "Ada Lovelace"
         },
@@ -381,6 +401,10 @@
           }
         },
         {
+          "fill": "event_type",
+          "valueFrom": "/fields/event_type/options/0/id"
+        },
+        {
           "fill": "name",
           "value": "Ada Lovelace"
         },
@@ -422,6 +446,79 @@
         {
           "fill": "slot",
           "valueFrom": "/fields/slot/options/0/id"
+        },
+        {
+          "submit": true,
+          "expect": {
+            "screen": "REVIEW"
+          }
+        },
+        {
+          "submit": true,
+          "expect": {
+            "screen": "DONE"
+          }
+        },
+        {
+          "submit": true,
+          "expect": {
+            "status": "completed",
+            "completion": {
+              "booking_uid": "demo-booking"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "book the second appointment type",
+      "steps": [
+        {
+          "expect": {
+            "screen": "DETAILS",
+            "status": "ready"
+          }
+        },
+        {
+          "fill": "event_type",
+          "value": "102"
+        },
+        {
+          "fill": "name",
+          "value": "Ada Lovelace"
+        },
+        {
+          "fill": "email",
+          "value": "ada@example.test"
+        },
+        {
+          "fill": "date",
+          "value": "2030-06-10"
+        },
+        {
+          "submit": true,
+          "expect": {
+            "screen": "SLOTS",
+            "data": {
+              "has_slots": true
+            },
+            "fields": {
+              "slot": {
+                "options": [
+                  {
+                    "id": "2030-06-10T13:00:00.000Z"
+                  },
+                  {
+                    "id": "2030-06-10T14:00:00.000Z"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "fill": "slot",
+          "value": "2030-06-10T13:00:00.000Z"
         },
         {
           "submit": true,

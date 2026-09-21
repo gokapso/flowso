@@ -12,13 +12,13 @@ flowso test flow.json --scenario scenarios.json --endpoint http://127.0.0.1:4312
 flowso preview flow.json --endpoint http://127.0.0.1:4312/flow --plaintext --log-file artifacts/preview.jsonl
 ```
 
-The six fixture journeys cover success, back/refresh, conflict recovery, no slots, invalid input, and provider outage. Restart the endpoint after changing its code. Flow JSON edits reload in the preview. The browser and headless CLI share the runtime; inspect layout and native controls in the browser as well.
+The seven fixture journeys cover both event types, success, back/refresh, conflict recovery, no slots, invalid input, and provider outage. Restart the endpoint after changing its code. Flow JSON edits reload in the preview. The browser and headless CLI share the runtime; inspect layout and native controls in the browser as well.
 
 ## Connect the real API through the local endpoint
 
-Obtain the intended test event type ID, timezone, future test date and credential location from the user. Do not ask them to paste a key into chat. The user can fill `.env.local` from `.env.example` locally or provide environment variables through their usual secret manager. Read only variable names or presence when troubleshooting credentials.
+Obtain the intended test event type IDs, timezone, future test date and credential location from the user. Do not ask them to paste a key into chat. The user can fill `.env.local` from `.env.example` locally or provide environment variables through their usual secret manager. Read only variable names or presence when troubleshooting credentials.
 
-Use `CAL_API_BASE_URL=https://api.cal.com/v2` (or their self-hosted `/v2` URL), `CAL_EVENT_TYPE_ID`, `CAL_API_KEY`, and `CAL_TIME_ZONE`. Keep `CAL_ALLOW_BOOKINGS=0` for availability testing. Node 20.6+ can load the local file with:
+Use `CAL_API_BASE_URL=https://api.cal.com/v2` (or their self-hosted `/v2` URL), `CAL_EVENT_TYPE_IDS` (1–20 unique positive IDs, comma-separated; `CAL_EVENT_TYPE_ID` remains supported for one type), `CAL_API_KEY`, and `CAL_TIME_ZONE`. Keep `CAL_ALLOW_BOOKINGS=0` for availability testing. Node 20.6+ can load the local file with:
 
 ```sh
 node --env-file=.env.local dev-server.mjs
@@ -32,11 +32,11 @@ Edit the date in `scenarios.availability.json` to the selected future date, then
 flowso test flow.json --scenario scenarios.availability.json --endpoint http://127.0.0.1:4312/flow --plaintext --json
 ```
 
-This journey stops at SLOTS and makes no booking POST. Empty availability is a valid response; inspect `tests[0].snapshot.data.slots` and `has_slots` instead of interpreting a pass as proof of bookable availability. Verify local dates, timezone and slot labels against the account's calendar. The starter currently queries a UTC day and formats results in `CAL_TIME_ZONE`; adapt the date range if the product requires the entire selected local calendar day.
+These journeys check the first two configured types, stop at SLOTS, and make no booking POST. Remove the second journey when configuring only one type. Empty availability is a valid response; inspect each test's `snapshot.data.slots` and `has_slots` instead of interpreting a pass as proof of bookable availability. Verify local dates, timezone and slot labels against the account's calendar. The starter currently queries a UTC day and formats results in `CAL_TIME_ZONE`; adapt the date range if the product requires the entire selected local calendar day.
 
 ## Verify an actual booking only when requested
 
-Use an appropriate test account, event type and attendee email. Cal.com may create calendar events and send notifications. Set `CAL_ALLOW_BOOKINGS=1` and `CAL_BOOKING_ENABLED_UNTIL` to a future ISO timestamp at most 60 minutes ahead only for the requested booking test, then restart the server. The adapter checks expiry at every booking attempt; the boolean alone does not allow writes. For deployed Kapso functions use `flowso bookings enable --for 10m` as described in [kapso-operations.md](kapso-operations.md). Create a separate live scenario: use a future date, choose a returned slot ID, confirm once and check DONE with a booking UID. Never use `demo-booking` or fixture-specific dates/errors as live expectations. Do not replay all six fixture journeys against the real API.
+Use an appropriate test account, event type and attendee email. Cal.com may create calendar events and send notifications. Set `CAL_ALLOW_BOOKINGS=1` and `CAL_BOOKING_ENABLED_UNTIL` to a future ISO timestamp at most 60 minutes ahead only for the requested booking test, then restart the server. The adapter checks expiry at every booking attempt; the boolean alone does not allow writes. For deployed Kapso functions use `flowso bookings enable --for 10m` as described in [kapso-operations.md](kapso-operations.md). Create a separate live scenario: use a future date, choose a returned slot ID, confirm once and check DONE with a booking UID. Never use `demo-booking` or fixture-specific dates/errors as live expectations. Do not replay the fixture journeys against the real API.
 
 If the outcome is uncertain (timeout or provider failure during confirmation), inspect the provider before retrying; a timeout does not prove no booking was created. Confirm the returned booking exists in the provider. Agree on cleanup scope before cancelling anything. Disable booking writes again after the test.
 

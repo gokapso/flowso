@@ -5,6 +5,8 @@ import { mockCal } from './mock-cal.mjs';
 
 const port = Number(process.env.PORT ?? 4312);
 const isMock = !process.env.CAL_API_BASE_URL;
+const eventTypeIds = (process.env.CAL_EVENT_TYPE_IDS ?? process.env.CAL_EVENT_TYPE_ID ?? (isMock ? '101,102' : ''))
+  .split(',').map(value => Number(value.trim()));
 let handler;
 
 const server = createServer(async (req, res) => {
@@ -33,7 +35,7 @@ const server = createServer(async (req, res) => {
 server.listen(port, '127.0.0.1', () => {
   const url = `http://127.0.0.1:${server.address().port}`;
   handler = createBookingHandler(createCalClient({ baseUrl: process.env.CAL_API_BASE_URL ?? `${url}/v2`, apiKey: process.env.CAL_API_KEY,
-    eventTypeId: Number(process.env.CAL_EVENT_TYPE_ID ?? 123), timeZone: process.env.CAL_TIME_ZONE ?? 'UTC',
+    eventTypeIds, timeZone: process.env.CAL_TIME_ZONE ?? 'UTC',
     fixture: isMock, allowBookings: process.env.CAL_ALLOW_BOOKINGS === '1', bookingEnabledUntil: process.env.CAL_BOOKING_ENABLED_UNTIL }));
   console.log(`Booking endpoint: ${url}/flow (${isMock ? 'local Cal.com contract fixture' : 'configured scheduling API'})`);
 });

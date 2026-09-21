@@ -20,7 +20,31 @@
       "data": {
         "notice": {
           "type": "string",
-          "__example__": "Choose a date to check availability."
+          "__example__": "Choose an appointment type and date."
+        },
+        "event_types": {
+          "type": "array",
+          "__example__": [
+            {
+              "id": "101",
+              "title": "Dental Checkup (15 min)"
+            },
+            {
+              "id": "102",
+              "title": "Cleaning (25 min)"
+            }
+          ],
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              }
+            }
+          }
         }
       },
       "layout": {
@@ -29,6 +53,13 @@
           {
             "type": "TextBody",
             "text": "${data.notice}"
+          },
+          {
+            "type": "RadioButtonsGroup",
+            "name": "event_type",
+            "label": "Appointment type",
+            "required": true,
+            "data-source": "${data.event_types}"
           },
           {
             "type": "TextInput",
@@ -58,7 +89,8 @@
               "payload": {
                 "name": "${form.name}",
                 "email": "${form.email}",
-                "date": "${form.date}"
+                "date": "${form.date}",
+                "event_type": "${form.event_type}"
               }
             }
           }

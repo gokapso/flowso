@@ -24,8 +24,11 @@ Open the returned `url`. The command reads the current Meta preview URL, adds `i
 
 ```sh
 flowso verify --to kapso --flow-id KAPSO_UUID \
-  --data '{"name":"Flowso Test","email":"flowso@example.test","date":"2030-06-10"}' --json
+  --data '{"name":"Flowso Test","email":"flowso@example.test","date":"2030-06-10","event_type":"101"}' --json
 ```
+
+Replace `event_type` with one of your configured Cal.com event type IDs.
+
 
 Choose a future date with availability and synthetic attendee data. This checks endpoint URI registration against Meta, encryption configuration, empty Meta validation errors and deployed function status, then exercises ping → INIT → availability → selection/REVIEW → native BACK/refresh. It never submits REVIEW. No available slots is a failure to complete the smoke test, not a pass. Override screen names with `--input-screen`, `--availability-screen`, and `--review-screen`; defaults are DETAILS, SLOTS, REVIEW. This first smoke-test contract expects availability data `slots: [{id: string}]` and submits `{slot: id}`. Other data shapes need a custom scenario via `flowso test` or an adapter.
 
@@ -96,7 +99,7 @@ flowso secrets set --to kapso --flow-id KAPSO_UUID \
 
 flowso endpoint deploy --to kapso --flow-id KAPSO_UUID \
   --data-endpoint kapso-data-endpoint.js \
-  --secret-env CAL_API_KEY --secret-env CAL_EVENT_TYPE_ID \
+  --secret-env CAL_API_KEY --secret-env CAL_EVENT_TYPE_IDS \
   --secret-env CAL_ALLOW_BOOKINGS --secret-env CAL_BOOKING_ENABLED_UNTIL
 ```
 

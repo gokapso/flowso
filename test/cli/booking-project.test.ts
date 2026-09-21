@@ -30,7 +30,7 @@ it('runs all booking journeys through a real local HTTP endpoint and Cal.com con
     const report = JSON.parse(log.mock.calls[0]![0]);
     expect(report.tests?.filter((test: { passed: boolean }) => !test.passed)).toEqual([]);
     expect(result.exitCode).toBe(0);
-    expect(report.tests).toHaveLength(6);
+    expect(report.tests).toHaveLength(7);
     const back = report.tests[1].events.find((event: { type: string; request?: { action: string } }) => event.type === 'data_exchange:request' && event.request?.action === 'BACK');
     expect(back).toBeDefined();
     const conflictEvents = report.tests[2].events;

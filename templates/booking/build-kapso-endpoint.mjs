@@ -26,7 +26,7 @@ async function handler(request, env) {
     }
   };
   const cal = createCalClient({ baseUrl: env.CAL_API_BASE_URL || 'https://api.cal.com/v2', apiKey: env.CAL_API_KEY,
-    eventTypeId: Number(env.CAL_EVENT_TYPE_ID), timeZone: env.CAL_TIME_ZONE || 'UTC',
+    eventTypeIds: (env.CAL_EVENT_TYPE_IDS ?? env.CAL_EVENT_TYPE_ID ?? '').split(',').map(value => Number(value.trim())), timeZone: env.CAL_TIME_ZONE || 'UTC',
     allowBookings: env.CAL_ALLOW_BOOKINGS === '1', bookingEnabledUntil: env.CAL_BOOKING_ENABLED_UNTIL });
   return Response.json(await createBookingHandler(cal, sessions)(exchange));
 }

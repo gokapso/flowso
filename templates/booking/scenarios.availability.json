@@ -10,6 +10,44 @@
           }
         },
         {
+          "fill": "event_type",
+          "valueFrom": "/fields/event_type/options/0/id"
+        },
+        {
+          "fill": "name",
+          "value": "Local Availability Test"
+        },
+        {
+          "fill": "email",
+          "value": "availability@example.test"
+        },
+        {
+          "fill": "date",
+          "value": "2030-06-10"
+        },
+        {
+          "submit": true,
+          "expect": {
+            "screen": "SLOTS",
+            "status": "ready"
+          }
+        }
+      ]
+    },
+    {
+      "name": "availability for the second configured appointment type",
+      "steps": [
+        {
+          "expect": {
+            "screen": "DETAILS",
+            "status": "ready"
+          }
+        },
+        {
+          "fill": "event_type",
+          "valueFrom": "/fields/event_type/options/1/id"
+        },
+        {
           "fill": "name",
           "value": "Local Availability Test"
         },

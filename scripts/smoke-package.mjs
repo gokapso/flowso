@@ -167,7 +167,7 @@ try {
   assert.equal(JSON.parse(command(['inspect', 'booking/flow.json', ...endpointArgs, '--json'])).snapshot.screen, 'DETAILS');
   const report = JSON.parse(command(['test', 'booking/flow.json', '--scenario', 'booking/scenarios.json', ...endpointArgs, '--json']));
   assert.equal(report.ok, true);
-  assert.equal(report.tests.length, 6);
+  assert.equal(report.tests.length, 7);
   const availability = JSON.parse(command(['test', 'booking/flow.json', '--scenario', 'booking/scenarios.availability.json', ...endpointArgs, '--json', '--trace']));
   assert.equal(availability.ok, true);
   assert.equal(availability.tests[0].snapshot.screen, 'SLOTS');

@@ -2,9 +2,9 @@ import { BookingError, errorData } from './errors.mjs';
 
 export function createBookingHandler(cal, sessions = new Map()) {
   function response(screen, data) { return { version: '3.0', screen, data }; }
-  function details(error) { return response('DETAILS', { notice: 'Choose a date to check availability.', ...(error ? errorData(error) : {}) }); }
+  function details(session, error) { return response('DETAILS', { event_types: session.eventTypes ?? [], notice: 'Choose an appointment type and date.', ...(error ? errorData(error) : {}) }); }
   function review(session, error) {
-    return response('REVIEW', { summary: `${session.name} (${session.email}) — ${session.slot}`, ...(error ? errorData(error) : {}) });
+    return response('REVIEW', { summary: `${session.eventTitle} — ${session.name} (${session.email}) — ${session.slot}`, ...(error ? errorData(error) : {}) });
   }
   const conflict = () => new BookingError('SLOT_CONFLICT', 'That time was just booked. Go back and choose another.', 409);
   function slotsResponse(session, error) {
@@ -12,26 +12,27 @@ export function createBookingHandler(cal, sessions = new Map()) {
     return response('SLOTS', { slots, has_slots: slots.length > 0, notice: slots.length ? 'Choose an available time.' : 'No times available on this date.', ...(error ? errorData(error) : {}) });
   }
   async function availability(session, error) {
-    const slots = (await cal.slots(session.date)).filter(slot => slot.id !== session.unavailable);
+    const slots = (await cal.slots(session.date, session.eventTypeId)).filter(slot => slot.id !== session.unavailable);
     session.slots = slots;
     return slotsResponse(session, error);
   }
   async function handle(request, session) {
     if (request.action === 'BACK') {
       if (request.screen === 'SLOTS' && session.date) return availability(session);
-      return details();
+      return details(session);
     }
     if (request.screen === 'DETAILS') {
-      const { name, email, date } = request.data ?? {};
-      if (typeof name !== 'string' || name.trim().length < 2 || typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+      const { name, email, date, event_type: eventTypeId } = request.data ?? {};
+      const event = session.eventTypes?.find(item => item.id === eventTypeId);
+      if (!event || typeof name !== 'string' || name.trim().length < 2 || typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
         || typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(date))) {
-        return details(new BookingError('PROVIDER_VALIDATION', 'Enter a name, email, and valid date.'));
+        return details(session, new BookingError('PROVIDER_VALIDATION', 'Choose an appointment type and enter a name, email, and valid date.'));
       }
-      if (session.name !== name || session.email !== email || session.date !== date) {
+      if (session.eventTypeId !== eventTypeId || session.name !== name || session.email !== email || session.date !== date) {
         session.booking = null; session.slot = null; session.slots = [];
       }
-      Object.assign(session, { name, email, date, unavailable: null });
-      try { return await availability(session); } catch (error) { return details(error); }
+      Object.assign(session, { name, email, date, eventTypeId, eventTitle: event.title, unavailable: null });
+      try { return await availability(session); } catch (error) { return details(session, error); }
     }
     if (request.screen === 'SLOTS') {
       const slot = request.data?.slot;
@@ -60,17 +61,19 @@ export function createBookingHandler(cal, sessions = new Map()) {
     if (request.action === 'ping') result = { version: '3.0', data: { status: 'active' } };
     else if (request.action === 'INIT') {
       if (sessions instanceof Map && sessions.size >= 1000) sessions.delete(sessions.keys().next().value);
-      await sessions.set(request.flow_token, { readOnly });
-      result = details();
+      const session = { readOnly };
+      try { session.eventTypes = await cal.eventTypes(); result = details(session); }
+      catch (error) { result = details(session, error); }
+      await sessions.set(request.flow_token, session);
     } else {
       const session = await sessions.get(request.flow_token);
-      if (!session) result = details(new BookingError('SESSION_EXPIRED', 'Session expired. Restart this flow.'));
+      if (!session) result = details({}, new BookingError('SESSION_EXPIRED', 'Session expired. Restart this flow.'));
       else {
         session.readOnly = session.readOnly || readOnly;
         try { result = await handle(request, session); }
         catch (error) {
           result = request.screen === 'REVIEW' ? review(session, error)
-            : request.screen === 'SLOTS' ? slotsResponse(session, error) : details(error);
+            : request.screen === 'SLOTS' ? slotsResponse(session, error) : details(session, error);
         }
         await sessions.set(request.flow_token, session);
       }

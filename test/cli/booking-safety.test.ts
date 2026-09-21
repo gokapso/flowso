@@ -42,10 +42,10 @@ it('classifies timeouts without replaying uncertain booking writes', async () =>
   expect(fetch).toHaveBeenCalledTimes(1);
 });
 it('prevents confirmation for verify tokens even with an unrestricted provider adapter', async () => {
-  const cal = { slots: vi.fn(async () => [{ id: booking.slot, title: '10:00' }]), book: vi.fn() };
+  const cal = { eventTypes: vi.fn(async () => [{ id: '1', title: 'Test appointment' }]), slots: vi.fn(async () => [{ id: booking.slot, title: '10:00' }]), book: vi.fn() };
   const handler = createBookingHandler(cal);
   const send = (action: string, screen?: string, data = {}) => handler({ version: '3.0', flow_token: 'flowso_verify_test', action, screen, data });
-  for (const response of [await send('ping'), await send('INIT'), await send('data_exchange', 'DETAILS', { ...booking, date: '2030-06-10' }), await send('data_exchange', 'SLOTS', { slot: booking.slot })]) {
+  for (const response of [await send('ping'), await send('INIT'), await send('data_exchange', 'DETAILS', { ...booking, date: '2030-06-10', event_type: '1' }), await send('data_exchange', 'SLOTS', { slot: booking.slot })]) {
     expect(response.data.flowso_verify).toMatchObject({ protocol: 1, read_only: true });
   }
   const result = await send('data_exchange', 'REVIEW', { readOnly: false, read_only: false });
@@ -53,17 +53,17 @@ it('prevents confirmation for verify tokens even with an unrestricted provider a
   const back = await send('BACK', 'SLOTS'); expect(back.screen).toBe('SLOTS'); expect(cal.slots).toHaveBeenCalledTimes(2);
 });
 it('keeps conflicts on REVIEW and refreshes availability on native BACK', async () => {
-  const cal = { slots: vi.fn(async () => [{ id: booking.slot, title: '10:00' }]), book: vi.fn(async () => { throw Object.assign(new Error('conflict'), { status: 409 }); }) };
+  const cal = { eventTypes: vi.fn(async () => [{ id: '1', title: 'Test appointment' }]), slots: vi.fn(async () => [{ id: booking.slot, title: '10:00' }]), book: vi.fn(async () => { throw Object.assign(new Error('conflict'), { status: 409 }); }) };
   const handler = createBookingHandler(cal);
   const send = (action: string, screen?: string, data = {}) => handler({ flow_token: 'normal-test', action, screen, data });
-  await send('INIT'); await send('data_exchange', 'DETAILS', { ...booking, date: '2030-06-10' }); await send('data_exchange', 'SLOTS', { slot: booking.slot });
+  await send('INIT'); await send('data_exchange', 'DETAILS', { ...booking, date: '2030-06-10', event_type: '1' }); await send('data_exchange', 'SLOTS', { slot: booking.slot });
   expect(await send('data_exchange', 'REVIEW')).toMatchObject({ screen: 'REVIEW', data: { error_code: 'SLOT_CONFLICT' } });
   expect(await send('BACK', 'SLOTS')).toMatchObject({ screen: 'SLOTS', data: { slots: [] } });
   expect(cal.slots).toHaveBeenCalledTimes(2);
 });
 it('runs the generated Kapso handler across separate invocations and refuses verify confirmations', async () => {
   const source = readFileSync('templates/booking/kapso-data-endpoint.js', 'utf8');
-  const fetch = vi.fn(async () => Response.json({ status: 'success', data: { '2030-06-10': [{ start: booking.slot }] } }));
+  const fetch = vi.fn(async (url: string) => Response.json({ status: 'success', data: url.includes('/event-types/') ? { id: 1, title: 'Test appointment', lengthInMinutes: 30 } : { '2030-06-10': [{ start: booking.slot }] } }));
   const records = new Map<string, string>();
   const env = { CAL_ALLOW_BOOKINGS: '1', CAL_BOOKING_ENABLED_UNTIL: new Date(Date.now() + 600_000).toISOString(), CAL_EVENT_TYPE_ID: '1',
     KV: { get: async (key: string) => records.has(key) ? JSON.parse(records.get(key)!) : null, put: async (key: string, value: string) => { records.set(key, value); } } };
@@ -71,9 +71,9 @@ it('runs the generated Kapso handler across separate invocations and refuses ver
     const handler = runInNewContext(`${source}\nhandler`, { Response, fetch, URLSearchParams, AbortSignal, console });
     return (await handler({ json: async () => ({ flow: { id: 'flow-1' }, data_exchange: { version: '3.0', flow_token: 'flowso_verify_generated', action, screen, data } }) }, env)).json();
   }
-  await send('INIT'); await send('data_exchange', 'DETAILS', { ...booking, date: '2030-06-10' }); await send('data_exchange', 'SLOTS', { slot: booking.slot });
+  await send('INIT'); await send('data_exchange', 'DETAILS', { ...booking, date: '2030-06-10', event_type: '1' }); await send('data_exchange', 'SLOTS', { slot: booking.slot });
   expect(await send('data_exchange', 'REVIEW')).toMatchObject({ screen: 'REVIEW', data: { error_code: 'BOOKING_DISABLED' } });
-  expect(fetch).toHaveBeenCalledTimes(1); expect(records.size).toBe(1);
+  expect(fetch).toHaveBeenCalledTimes(2); expect(records.size).toBe(1);
 });
 it('keeps the deployable endpoint reproducible from the tested source modules', () => {
   const directory = mkdtempSync(join(tmpdir(), 'flowso-template-'));
@@ -89,10 +89,10 @@ it('preserves timeouts while reading the response body', async () => {
 });
 it('keeps BACK refresh failures on SLOTS and invalidates confirmation cache when selection changes', async () => {
   const next = '2030-06-10T11:00:00.000Z';
-  const cal = { slots: vi.fn(async () => [{ id: booking.slot }, { id: next }]), book: vi.fn(async (session: { slot: string }) => ({ booking_uid: session.slot, start: session.slot })) };
+  const cal = { eventTypes: vi.fn(async () => [{ id: '1', title: 'Test appointment' }]), slots: vi.fn(async () => [{ id: booking.slot }, { id: next }]), book: vi.fn(async (session: { slot: string }) => ({ booking_uid: session.slot, start: session.slot })) };
   const handler = createBookingHandler(cal);
   const send = (action: string, screen?: string, data = {}) => handler({ flow_token: 'normal', action, screen, data });
-  await send('INIT'); await send('data_exchange', 'DETAILS', { ...booking, date: '2030-06-10' }); await send('data_exchange', 'SLOTS', { slot: booking.slot });
+  await send('INIT'); await send('data_exchange', 'DETAILS', { ...booking, date: '2030-06-10', event_type: '1' }); await send('data_exchange', 'SLOTS', { slot: booking.slot });
   await send('data_exchange', 'REVIEW'); await send('data_exchange', 'REVIEW'); expect(cal.book).toHaveBeenCalledTimes(1);
   cal.slots.mockRejectedValueOnce(new Error('outage'));
   expect(await send('BACK', 'SLOTS')).toMatchObject({ screen: 'SLOTS', data: { error_code: 'PROVIDER_UNAVAILABLE' } });
@@ -115,4 +115,36 @@ it('retries KV rate limits without repeating provider booking writes', async () 
     expect(await (await pending).json()).toMatchObject({ screen: 'DONE', data: { booking_uid: 'confirmed' } });
     expect(fetch).toHaveBeenCalledTimes(1); expect(put).toHaveBeenCalledTimes(2);
   } finally { vi.useRealTimers(); }
+});
+it.each([[], [0], [-1], [1.5], [1, 1], Array.from({ length: 21 }, (_, i) => i + 1)].map(eventTypeIds => ({ eventTypeIds })))('rejects invalid configured event IDs: $eventTypeIds', ({ eventTypeIds }) => {
+  expect(() => client({ eventTypeIds })).toThrow('unique positive integer');
+});
+it('fetches only configured event types and passes the selected ID to availability and booking', async () => {
+  const fetch = vi.fn(async (url: string, options?: RequestInit) => {
+    if (url.includes('/event-types/')) {
+      const id = Number(url.split('/').pop());
+      return Response.json({ status: 'success', data: { id, title: `Appointment ${id}`, lengthInMinutes: 30 } });
+    }
+    if (options?.method === 'POST') return Response.json({ status: 'success', data: { uid: 'booked', start: booking.slot } });
+    return Response.json({ status: 'success', data: { '2030-06-10': [{ start: booking.slot }] } });
+  });
+  vi.stubGlobal('fetch', fetch);
+  const cal = client({ eventTypeIds: [102, 101] });
+  expect(await cal.eventTypes()).toEqual([{ id: '102', title: 'Appointment 102 (30 min)' }, { id: '101', title: 'Appointment 101 (30 min)' }]);
+  await cal.slots('2030-06-10', '102');
+  await cal.book({ ...booking, eventTypeId: '102' });
+  expect(new URL(fetch.mock.calls[2]![0]).searchParams.get('eventTypeId')).toBe('102');
+  expect(JSON.parse(String(fetch.mock.calls[3]![1]?.body)).eventTypeId).toBe(102);
+  await expect(cal.slots('2030-06-10', '999')).rejects.toMatchObject({ code: 'PROVIDER_VALIDATION' });
+  await expect(cal.book({ ...booking, eventTypeId: '999' })).rejects.toMatchObject({ code: 'PROVIDER_VALIDATION' });
+  expect(fetch).toHaveBeenCalledTimes(4);
+});
+it('rejects an unconfigured event type before querying availability', async () => {
+  const cal = { eventTypes: async () => [{ id: '1', title: 'Allowed' }], slots: vi.fn(), book: vi.fn() };
+  const handler = createBookingHandler(cal);
+  await handler({ action: 'INIT', flow_token: 'test' });
+  const response = await handler({ action: 'data_exchange', flow_token: 'test', screen: 'DETAILS', data: { ...booking, date: '2030-06-10', event_type: '999' } });
+  expect(response).toMatchObject({ screen: 'DETAILS', data: { error_code: 'PROVIDER_VALIDATION' } });
+  expect(cal.slots).not.toHaveBeenCalled();
+  expect(cal.book).not.toHaveBeenCalled();
 });

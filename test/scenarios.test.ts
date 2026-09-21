@@ -75,7 +75,7 @@ describe('scenario execution', () => {
   it('only uses examples when inspection explicitly requests them', async () => {
     await expect(inspectFlow({ flow: booking as unknown as FlowJson }, { mode: 'navigate' })).rejects.toThrow('missing declared data');
     const result = await inspectFlow({ flow: booking as unknown as FlowJson, useExamples: true }, { mode: 'navigate' });
-    expect(result.data.notice).toBe('Choose a date to check availability.');
+    expect(result.data.notice).toBe('Choose an appointment type and date.');
   });
 
   it('does not allow a typo in assertions or assertion-free tests to pass', () => {
