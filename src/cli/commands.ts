@@ -24,6 +24,7 @@ const help = `Usage:
   flowso inspect <flow.json> [--screen ID --data '{...}'] [--examples] [--json]
   flowso test <flow.json> --scenario <tests.json> [--trace] [--json]
   flowso init <directory>              scaffold a local booking project and agent skill
+  flowso skill install [--global]      open the standard skills installer and agent picker
   flowso skill [--install <directory>] print the skill or copy it to a skill directory
   flowso catalog [component-id] [--json] list components or inspect a canonical snippet
   flowso deploy <flow.json> [options]

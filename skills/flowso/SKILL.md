@@ -9,6 +9,8 @@ Use the installed `flowso` CLI as an executable feedback loop. Run `flowso help`
 
 For Cal.com scheduling or switching from fixtures to a real scheduling API, read [references/cal-com.md](references/cal-com.md).
 
+For a user installing the skill, `flowso skill install` launches the standard Vercel skills installer; `--global` selects user-wide scope. Run it from the target project for project scope. This delegates agent selection to the installer and requires npx/network access. Package installation only prints a next-step hint and never installs skills automatically. For an offline copy, use `flowso skill --install <directory>`; it refuses to overwrite an existing directory.
+
 ## Start from a reproducible project
 
 For a new dynamic flow, `flowso init my-flow` creates a four-screen booking flow, a local HTTP endpoint, a Cal.com contract fixture, scenarios, and this skill. Run `node dev-server.mjs` in that directory. Keep this process alive while testing and stop it when finished unless the user wants to keep working.

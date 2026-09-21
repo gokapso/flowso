@@ -18,12 +18,22 @@ Install the [Flowso skill](skills/flowso/SKILL.md) for Codex, Claude Code or ano
 skill-aware agent:
 
 ```sh
-bunx skills add gokapso/flowso --skill flowso
+flowso skill install
 ```
 
-The installer lets you choose your agents. Add `--global` to use the skill across projects.
-The skill teaches the agent the CLI, scenario format, endpoint debugging and deployment
-workflow. It does not install the CLI; the commands below assume `flowso` is available.
+With Flowso installed, this launches the standard [Vercel skills installer](https://github.com/vercel-labs/skills),
+equivalent to `npx skills add gokapso/flowso --skill flowso`. In an interactive terminal,
+the installer handles agent selection (including Codex and Claude Code), project/global
+scope and installation method. Use `flowso skill install --global` to select global scope
+up front. It needs Node.js/npm (`npx`) and network access; run it from your project directory
+for project installation. The standard installer controls its behavior in CI or agent sessions.
+
+Package installation only prints `Next: flowso skill install`; it does not launch the picker
+or modify `~/.claude`, `~/.codex`, `.agents` or your project's agent configuration. Package
+managers may hide lifecycle output or disable scripts; the command remains available.
+The skill teaches the agent the CLI, scenario format, endpoint debugging and deployment workflow.
+If the CLI is not installed, use the equivalent `npx skills add ...` command above to install
+just the skill.
 
 Then give the agent a concrete task, for example:
 

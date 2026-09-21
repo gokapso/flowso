@@ -4,7 +4,7 @@ export type ParsedArgs = {
   flags: Record<string, string | string[] | boolean>;
 };
 
-const booleanFlags = new Set(['plaintext', 'open', 'help', 'publish', 'preview', 'no-preview', 'skip-local-validation', 'draft', 'json', 'trace', 'examples', 'setup-encryption', 'register-endpoint']);
+const booleanFlags = new Set(['global', 'plaintext', 'open', 'help', 'publish', 'preview', 'no-preview', 'skip-local-validation', 'draft', 'json', 'trace', 'examples', 'setup-encryption', 'register-endpoint']);
 
 export function parseArgs(argv: string[]): ParsedArgs {
   const result: ParsedArgs = { command: 'help', positional: [], flags: {} };

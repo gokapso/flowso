@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import type { ParsedArgs } from './args';
 import { textFlag } from './options';
+import { installSkill } from './skill-install';
 import { COMPONENT_CATALOG, findCatalogEntry } from '../catalog/component-catalog';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -28,7 +29,14 @@ export async function resourceCommand(args: ParsedArgs, log: (line: string) => v
     return { exitCode: 0 };
   }
   if (args.command === 'skill') {
-    if (args.positional.length || Object.keys(args.flags).some(flag => flag !== 'install')) throw new Error('Usage: flowso skill [--install <directory>]');
+    if (args.positional[0] === 'install') {
+      if (args.positional.length !== 1 || Object.keys(args.flags).some(flag => flag !== 'global') ||
+          (args.flags.global !== undefined && args.flags.global !== true)) {
+        throw new Error('Usage: flowso skill install [--global]');
+      }
+      return installSkill(args.flags.global === true);
+    }
+    if (args.positional.length || Object.keys(args.flags).some(flag => flag !== 'install')) throw new Error('Usage: flowso skill [--install <directory>] | flowso skill install [--global]');
     const target = textFlag(args, 'install');
     if (target) {
       await copyNew(resolve(root, 'skills/flowso'), resolve(target));

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdtemp, mkdir, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -44,6 +44,26 @@ try {
   run('bun', ['add', archive], consumer);
   const cli = join(consumer, 'node_modules/flowso/dist/cli/main.js');
   const command = (args, expectedStatus = 0) => run(process.execPath, [cli, ...args], consumer, expectedStatus);
+  // Exercise the packaged npm lifecycle script: it may print, but must not configure agents.
+  const beforeInstallHint = await readdir(consumer);
+  const hint = run('npm', ['run', 'postinstall', '--prefix', join(consumer, 'node_modules/flowso')], consumer);
+  assert.match(hint, /Next: flowso skill install/);
+  assert.deepEqual(await readdir(consumer), beforeInstallHint);
+  // Probe the installed wrapper without network access or a real skills installation.
+  const probeBin = join(directory, 'bin');
+  await mkdir(probeBin);
+  const probe = join(probeBin, 'npx');
+  await writeFile(probe, '#!' + process.execPath + '\nconsole.log(JSON.stringify({args:process.argv.slice(2),cwd:process.cwd()})); process.exit(Number(process.env.FLOWSO_PROBE_EXIT || 0));\n');
+  await chmod(probe, 0o755);
+  const originalPath = env.PATH;
+  env.PATH = probeBin + ':' + originalPath;
+  try {
+    assert.deepEqual(JSON.parse(command(['skill', 'install'])), { args: ['skills', 'add', 'gokapso/flowso', '--skill', 'flowso'], cwd: await realpath(consumer) });
+    assert.deepEqual(JSON.parse(command(['skill', 'install', '--global'])).args, ['skills', 'add', 'gokapso/flowso', '--skill', 'flowso', '--global']);
+    env.FLOWSO_PROBE_EXIT = '7';
+    command(['skill', 'install'], 7);
+  } finally { env.PATH = originalPath; delete env.FLOWSO_PROBE_EXIT; }
+
   command(['init', 'booking']);
   assert.match(await readFile(join(consumer, 'booking/.agents/skills/flowso/SKILL.md'), 'utf8'), /name: flowso/);
   const scenarioReference = 'references/scenarios.md';
@@ -158,7 +178,7 @@ try {
   assert.equal(exchange.status, 200);
   const journal = (await readFile(join(consumer, 'preview.jsonl'), 'utf8')).trim().split('\n').map(line => JSON.parse(line));
   assert.ok(journal.some(record => record.kind === 'exchange.response' && record.response.screen === 'DETAILS'));
-  console.log(JSON.stringify({ ok: true, installedPackage: true, scenarios: report.tests.length, skill: true, catalog: true, previewAssets: true, kapsoDraftDeploy: true, kapsoOperations: true, kapsoAttach: true }));
+  console.log(JSON.stringify({ ok: true, installedPackage: true, skillInstaller: true, postinstallHint: true, scenarios: report.tests.length, skill: true, catalog: true, previewAssets: true, kapsoDraftDeploy: true, kapsoOperations: true, kapsoAttach: true }));
 } finally {
   for (const child of children) {
     if (child.exitCode === null && child.signalCode === null) {
