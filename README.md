@@ -1,5 +1,11 @@
 # flowso
 
+[![npm version](https://img.shields.io/npm/v/flowso)](https://www.npmjs.com/package/flowso)
+[![npm downloads](https://img.shields.io/npm/dm/flowso)](https://www.npmjs.com/package/flowso)
+[![Node.js version](https://img.shields.io/node/v/flowso)](https://www.npmjs.com/package/flowso)
+[![License: MIT](https://img.shields.io/github/license/gokapso/flowso)](LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/gokapso/flowso?style=flat)](https://github.com/gokapso/flowso/stargazers)
+
 **Flowso** is a local development toolkit for building WhatsApp Flows with coding agents,
 by [Kapso](https://kapso.ai).
 
