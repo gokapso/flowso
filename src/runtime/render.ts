@@ -1,6 +1,6 @@
 import type { Component, FlowJson, Screen } from '../schema/flow-json';
 import { isInputComponent } from '../schema/flow-json';
-import { resolveValue, resolveDeep, isActionKey, type EvaluationContext } from './expressions';
+import { resolveValue, resolveConditionValue, resolveDeep, isActionKey, type EvaluationContext } from './expressions';
 import type { RenderedNode, RenderedScreen } from './types';
 
 export function findScreen(flow: FlowJson, screenId: string): Screen | undefined {
@@ -30,7 +30,7 @@ export function flattenComponents(
     const key = `${keyPrefix}${index}`;
     const path = `${pathPrefix}[${index}]`;
     if (component.type === 'If') {
-      const condition = resolveValue(component.condition, options.context);
+      const condition = resolveConditionValue(component.condition, options.context);
       const taken = truthy(condition);
       const branch = taken ? component.then : component.else ?? [];
       nodes.push(...flattenComponents(branch, options, `${key}.${taken ? 't' : 'e'}.`, `${path}.${taken ? 'then' : 'else'}`));

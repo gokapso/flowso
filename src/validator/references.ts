@@ -1,5 +1,5 @@
 import {
-  collectReferences, ExpressionError, isNestedExpression, isWholeReference, parseNestedExpression, parseReference,
+  collectReferences, ExpressionError, isBareExpression, isNestedExpression, isWholeReference, parseNestedExpression, parseReference,
   type ParsedReference,
 } from '../runtime/expressions';
 import { supportsNestedExpressions } from '../schema/versions';
@@ -40,6 +40,13 @@ function validateString(
       addIssue(context, 'INVALID_EXPRESSION', path, error.message);
       return;
     }
+    for (const reference of collectReferences(value)) validateReference(context, screen, screens, reference, path);
+    return;
+  }
+  // `If` conditions are expression slots: the Flow JSON editor accepts bare comparison
+  // expressions there ("${data.x} == '1'") with no backticks, in addition to whole
+  // references and nested expressions. References inside one are checked like any other.
+  if (path.endsWith('.condition') && isBareExpression(value)) {
     for (const reference of collectReferences(value)) validateReference(context, screen, screens, reference, path);
     return;
   }

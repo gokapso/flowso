@@ -77,3 +77,35 @@ describe('references and expressions', () => {
     expect(validateFlowJson(flow({ version: '6.0', screens })).issues).toEqual([]);
   });
 });
+
+describe('bare expressions in If conditions', () => {
+  it('accepts bare comparison expressions in If conditions', () => {
+    const result = validateFlowJson(flow({ screens: [screen([
+      { type: 'If', condition: "${data.nota_baixa} == '1'", then: [{ type: 'TextBody', text: 'Low' }], else: [{ type: 'TextBody', text: 'High' }] },
+      { type: 'If', condition: "${screen.START.data.nota_baixa} != '1'", then: [{ type: 'TextBody', text: 'Again' }] },
+      footer(),
+    ], { data: { nota_baixa: { type: 'string', __example__: '0' } } })] }));
+    expect(result.issues).toEqual([]);
+  });
+
+  it('checks references inside bare condition expressions', () => {
+    const result = validateFlowJson(flow({ screens: [screen([
+      { type: 'If', condition: "${data.missing} == '1'", then: [{ type: 'TextBody', text: 'Low' }] }, footer(),
+    ])] }));
+    expectIssue(result, 'INVALID_DYNAMIC_REFERENCE', 'screens[0].layout.children[0].condition');
+  });
+
+  it('still rejects malformed condition expressions', () => {
+    const result = validateFlowJson(flow({ screens: [screen([
+      { type: 'If', condition: "${data.name} === 'Ana'", then: [{ type: 'TextBody', text: 'Low' }] }, footer(),
+    ], { data: { name: { type: 'string', __example__: 'Ana' } } })] }));
+    expectIssue(result, 'INVALID_DYNAMIC_REFERENCE', 'screens[0].layout.children[0].condition');
+  });
+
+  it('still rejects bare expressions outside If conditions', () => {
+    const result = validateFlowJson(flow({ screens: [screen([
+      { type: 'TextBody', text: "${data.name} == 'Ana'" }, footer(),
+    ], { data: { name: { type: 'string', __example__: 'Ana' } } })] }));
+    expectIssue(result, 'INVALID_DYNAMIC_REFERENCE', 'screens[0].layout.children[0].text');
+  });
+});

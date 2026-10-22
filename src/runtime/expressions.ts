@@ -3,6 +3,10 @@
  *  - A whole-string reference: "${data.x}", "${form.x}", "${screen.ID.data.x}", "${screen.ID.form.x}".
  *  - A nested expression (v6.0+): a string wrapped in backticks, e.g. "`'Hello ' ${data.name}`",
  *    "`${form.age} >= 18`", "`(${data.a} == 'x') && !${form.b}`".
+ *  - A bare expression, only in expression slots such as an `If` condition: "${data.x} == '1'"
+ *    with no backticks. The Flow JSON editor accepts comparisons there in every version that
+ *    has the `If` component, so conditions resolve them; other properties keep requiring
+ *    backticks for anything beyond a whole reference.
  *  - Anything else is a literal.
  */
 
@@ -496,6 +500,49 @@ export function evaluateNestedExpression(expression: string, context: Evaluation
   }
 
   return evaluateNode(node, context);
+}
+
+/**
+ * Parse a bare (backtick-less) expression such as an `If` condition: "${data.x} == '1'".
+ * Returns null when the string is not a well-formed expression containing at least one
+ * reference, so plain text and pure literals are never mistaken for expressions.
+ */
+export function parseBareExpression(value: string): ExpressionNode | null {
+  if (isWholeReference(value) || isNestedExpression(value)) return null;
+  let node: ExpressionNode;
+  try {
+    node = new Parser(tokenize(value), value).parse();
+  } catch {
+    return null;
+  }
+
+  return collectReferences(value).length > 0 ? node : null;
+}
+
+export function isBareExpression(value: unknown): value is string {
+  return typeof value === 'string' && parseBareExpression(value) !== null;
+}
+
+export function evaluateBareExpression(expression: string, context: EvaluationContext): unknown {
+  let node = expressionCache.get(expression);
+  if (!node) {
+    const parsed = parseBareExpression(expression);
+    if (!parsed) throw new ExpressionError('Invalid bare expression', expression);
+    node = parsed;
+    expressionCache.set(expression, node);
+  }
+
+  return evaluateNode(node, context);
+}
+
+/**
+ * Resolve an `If` condition: whole references, nested expressions, and bare comparison
+ * expressions ("${data.x} == '1'") are all evaluated; anything else follows resolveValue.
+ */
+export function resolveConditionValue(value: unknown, context: EvaluationContext): unknown {
+  if (typeof value === 'string' && isBareExpression(value)) return evaluateBareExpression(value, context);
+
+  return resolveValue(value, context);
 }
 
 /**

@@ -3,7 +3,24 @@ import type { ValidationIssue, ValidationSeverity } from './types';
 
 export type JsonObject = Record<string, unknown>;
 export type LocatedValue = { value: unknown; path: string };
-export type ComponentEntry = LocatedValue & { parentType: string; isLast: boolean; inForm: boolean };
+export type ComponentEntry = LocatedValue & {
+  parentType: string;
+  isLast: boolean;
+  inForm: boolean;
+  /**
+   * Branch decisions from the screen root down to this component, one segment per
+   * conditional ancestor, e.g. "screens[0].layout.children[2]|then". Two components
+   * whose branch paths first differ on a segment of the same conditional live in
+   * mutually exclusive branches and never render together.
+   */
+  branchPath: readonly string[];
+  /**
+   * True when nothing renders after this component on its render path: it is the last
+   * child of its container and every conditional ancestor is the last child of its
+   * own container.
+   */
+  isTail: boolean;
+};
 export type ScreenEntry = {
   value: JsonObject;
   path: string;
@@ -61,21 +78,28 @@ export function isNonEmptyString(value: unknown): value is string {
   return isString(value) && value.trim().length > 0;
 }
 
-function componentEntries(value: unknown, path: string, parentType: string, inForm = false): ComponentEntry[] {
+function componentEntries(
+  value: unknown, path: string, parentType: string, inForm = false,
+  branchPath: readonly string[] = [], ancestorsTail = true,
+): ComponentEntry[] {
   if (!Array.isArray(value)) return [];
   return value.flatMap((component: unknown, index): ComponentEntry[] => {
-    const entry = { value: component, path: `${path}[${index}]`, parentType, isLast: index === value.length - 1, inForm };
+    const isLast = index === value.length - 1;
+    const entry: ComponentEntry = {
+      value: component, path: `${path}[${index}]`, parentType, isLast, inForm,
+      branchPath, isTail: ancestorsTail && isLast,
+    };
     if (!isObject(component)) return [entry];
     if (component.type === 'Form') {
-      return [entry, ...componentEntries(component.children, `${entry.path}.children`, 'Form', true)];
+      return [entry, ...componentEntries(component.children, `${entry.path}.children`, 'Form', true, branchPath, entry.isTail)];
     }
     if (component.type === 'If') {
-      return [entry, ...componentEntries(component.then, `${entry.path}.then`, 'If', inForm),
-        ...componentEntries(component.else, `${entry.path}.else`, 'If', inForm)];
+      return [entry, ...componentEntries(component.then, `${entry.path}.then`, 'If', inForm, [...branchPath, `${entry.path}|then`], entry.isTail),
+        ...componentEntries(component.else, `${entry.path}.else`, 'If', inForm, [...branchPath, `${entry.path}|else`], entry.isTail)];
     }
     if (component.type === 'Switch' && isObject(component.cases)) {
       return [entry, ...Object.entries(component.cases).flatMap(([key, branch]) =>
-        componentEntries(branch, `${entry.path}.cases.${key}`, 'Switch', inForm))];
+        componentEntries(branch, `${entry.path}.cases.${key}`, 'Switch', inForm, [...branchPath, `${entry.path}|case:${key}`], entry.isTail))];
     }
     return [entry];
   });

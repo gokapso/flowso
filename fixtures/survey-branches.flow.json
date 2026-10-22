@@ -1,0 +1,172 @@
+{
+  "routing_model": {
+    "ALTA": [],
+    "BAIXA": [],
+    "NOTA": [
+      "BAIXA",
+      "ALTA"
+    ]
+  },
+  "screens": [
+    {
+      "data": {
+        "nota_baixa": {
+          "__example__": "0",
+          "type": "string"
+        }
+      },
+      "id": "NOTA",
+      "layout": {
+        "children": [
+          {
+            "children": [
+              {
+                "text": "Nota",
+                "type": "TextHeading"
+              },
+              {
+                "data-source": [
+                  {
+                    "id": "1",
+                    "on-select-action": {
+                      "name": "update_data",
+                      "payload": {
+                        "nota_baixa": "1"
+                      }
+                    },
+                    "on-unselect-action": {
+                      "name": "update_data",
+                      "payload": {
+                        "nota_baixa": "0"
+                      }
+                    },
+                    "title": "1"
+                  },
+                  {
+                    "id": "5",
+                    "on-select-action": {
+                      "name": "update_data",
+                      "payload": {
+                        "nota_baixa": "0"
+                      }
+                    },
+                    "on-unselect-action": {
+                      "name": "update_data",
+                      "payload": {
+                        "nota_baixa": "0"
+                      }
+                    },
+                    "title": "5"
+                  }
+                ],
+                "label": "Selecione",
+                "name": "nota",
+                "required": true,
+                "type": "RadioButtonsGroup"
+              },
+              {
+                "condition": "${data.nota_baixa} == '1'",
+                "else": [
+                  {
+                    "label": "Continuar",
+                    "on-click-action": {
+                      "name": "navigate",
+                      "next": {
+                        "name": "ALTA",
+                        "type": "screen"
+                      },
+                      "payload": {}
+                    },
+                    "type": "Footer"
+                  }
+                ],
+                "then": [
+                  {
+                    "label": "Continuar",
+                    "on-click-action": {
+                      "name": "navigate",
+                      "next": {
+                        "name": "BAIXA",
+                        "type": "screen"
+                      },
+                      "payload": {}
+                    },
+                    "type": "Footer"
+                  }
+                ],
+                "type": "If"
+              }
+            ],
+            "name": "form",
+            "type": "Form"
+          }
+        ],
+        "type": "SingleColumnLayout"
+      },
+      "title": "Nota"
+    },
+    {
+      "id": "BAIXA",
+      "layout": {
+        "children": [
+          {
+            "children": [
+              {
+                "text": "Baixa",
+                "type": "TextHeading"
+              },
+              {
+                "label": "Concluir",
+                "on-click-action": {
+                  "name": "complete",
+                  "payload": {
+                    "nota": "${screen.NOTA.form.nota}"
+                  }
+                },
+                "type": "Footer"
+              }
+            ],
+            "name": "form",
+            "type": "Form"
+          }
+        ],
+        "type": "SingleColumnLayout"
+      },
+      "success": true,
+      "terminal": true,
+      "title": "Baixa"
+    },
+    {
+      "id": "ALTA",
+      "layout": {
+        "children": [
+          {
+            "children": [
+              {
+                "text": "Alta",
+                "type": "TextHeading"
+              },
+              {
+                "label": "Concluir",
+                "on-click-action": {
+                  "name": "complete",
+                  "payload": {
+                    "nota": "${screen.NOTA.form.nota}"
+                  }
+                },
+                "type": "Footer"
+              }
+            ],
+            "name": "form",
+            "type": "Form"
+          }
+        ],
+        "type": "SingleColumnLayout"
+      },
+      "success": true,
+      "terminal": true,
+      "title": "Alta"
+    }
+  ],
+  "version": "7.3"
+}

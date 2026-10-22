@@ -69,9 +69,41 @@ describe('components and actions', () => {
     expect(result.issues.some((issue) => issue.message.includes('at most one Footer'))).toBe(true);
   });
 
-  it('follows the requested Footer placement rule even for conditional branches', () => {
-    const result = validateFlowJson(flow({ screens: [screen([{ type: 'If', condition: true, then: [footer()] }])] }));
+  it('allows one Footer per If branch when the If is the last element', () => {
+    const result = validateFlowJson(flow({ screens: [screen([
+      { type: 'If', condition: true, then: [footer()], else: [footer()] },
+    ])] }));
+    expect(result.issues).toEqual([]);
+  });
+
+  it('allows one Footer per Switch case when the Switch is the last element', () => {
+    const result = validateFlowJson(flow({ screens: [screen([
+      { type: 'Switch', value: 'a', cases: { a: [footer()], b: [footer()] } },
+    ])] }));
+    expect(result.issues).toEqual([]);
+  });
+
+  it('rejects a branch Footer when the conditional is not the last element', () => {
+    const result = validateFlowJson(flow({ screens: [screen([
+      { type: 'If', condition: true, then: [footer()] }, { type: 'TextBody', text: 'After' },
+    ])] }));
     expectIssue(result, 'INVALID_FOOTER_POSITION', 'screens[0].layout.children[0].then[0]');
+  });
+
+  it('rejects a branch Footer that is not the last element of its branch', () => {
+    const result = validateFlowJson(flow({ screens: [screen([
+      { type: 'If', condition: true, then: [footer(), { type: 'TextBody', text: 'After' }] },
+    ])] }));
+    expectIssue(result, 'INVALID_FOOTER_POSITION', 'screens[0].layout.children[0].then[0]');
+  });
+
+  it('rejects a screen Footer combined with a branch Footer on the same render path', () => {
+    const result = validateFlowJson(flow({ screens: [screen([
+      { type: 'If', condition: true, then: [footer()] }, footer(),
+    ])] }));
+    expectIssue(result, 'INVALID_FOOTER_POSITION', 'screens[0].layout.children[1]');
+    const issue = result.issues.find((candidate) => candidate.pointers[0]?.path === 'screens[0].layout.children[1]');
+    expect(issue?.message).toContain('at most one Footer');
   });
 
   it.each([

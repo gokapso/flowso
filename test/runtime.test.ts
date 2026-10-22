@@ -3,8 +3,10 @@ import { createFlowRuntime } from '../src/runtime/runtime';
 import type { FlowDataEndpoint, FlowDataExchangeRequest } from '../src/runtime/types';
 import type { FlowJson, Action } from '../src/schema/flow-json';
 import appointment from '../fixtures/appointment.flow.json';
+import surveyBranches from '../fixtures/survey-branches.flow.json';
 
 const flow = appointment as unknown as FlowJson;
+const surveyFlow = surveyBranches as unknown as FlowJson;
 
 function footerAction(runtime: ReturnType<typeof createFlowRuntime>): Action {
   const footer = runtime.render()?.children.find((node) => node.type === 'Footer');
@@ -255,5 +257,28 @@ describe('createFlowRuntime', () => {
       await runtime.setFormValue('email', 'a@b.co');
       expect(listener).toHaveBeenCalledTimes(2);
     });
+  });
+});
+
+describe('bare If conditions with per-branch Footers (survey fixture)', () => {
+  function footerTarget(runtime: ReturnType<typeof createFlowRuntime>): string | undefined {
+    const footer = runtime.render()?.children.find((node) => node.type === 'Footer');
+    const action = footer?.props['on-click-action'] as { next?: { name?: string } } | undefined;
+
+    return action?.next?.name;
+  }
+
+  it('renders the else-branch Footer (ALTA) after selecting 5', async () => {
+    const runtime = createFlowRuntime({ flow: surveyFlow });
+    await runtime.start();
+    await runtime.setFormValue('nota', '5');
+    expect(footerTarget(runtime)).toBe('ALTA');
+  });
+
+  it('renders the then-branch Footer (BAIXA) after selecting 1', async () => {
+    const runtime = createFlowRuntime({ flow: surveyFlow });
+    await runtime.start();
+    await runtime.setFormValue('nota', '1');
+    expect(footerTarget(runtime)).toBe('BAIXA');
   });
 });

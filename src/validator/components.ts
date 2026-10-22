@@ -2,7 +2,7 @@ import { ACTION_MIN_VERSION, COMPONENT_MIN_VERSION, requiresFormWrapper } from '
 import { isNestedExpression, isWholeReference } from '../runtime/expressions';
 import {
   addIssue, checkProperty, isInputType, isNonEmptyString, isObject, isString,
-  type JsonObject, type Rule, type ValidationContext,
+  type ComponentEntry, type JsonObject, type Rule, type ValidationContext,
 } from './context';
 
 const REQUIRED_STRINGS: Readonly<Record<string, readonly string[]>> = {
@@ -71,10 +71,24 @@ function validateAction(context: ValidationContext, value: unknown, path: string
   checkProperty(context, value, 'payload', path, isObject, 'an object', value.name === 'update_data');
 }
 
+/** True when two branch paths diverge on different branches of the same conditional. */
+function branchesAreExclusive(a: readonly string[], b: readonly string[]): boolean {
+  const shared = Math.min(a.length, b.length);
+  for (let index = 0; index < shared; index += 1) {
+    const left = a[index] as string;
+    const right = b[index] as string;
+    if (left === right) continue;
+
+    return left.slice(0, left.lastIndexOf('|')) === right.slice(0, right.lastIndexOf('|'));
+  }
+
+  return false;
+}
+
 export const validateComponents: Rule = (context) => {
   for (const screen of context.screens) {
     const names = new Set<string>();
-    const footers: string[] = [];
+    const footers: ComponentEntry[] = [];
     const pickers: string[] = [];
     for (const entry of screen.components) {
       const { value, path } = entry;
@@ -99,14 +113,23 @@ export const validateComponents: Rule = (context) => {
         }
       }
       if (value.type === 'Footer') {
-        footers.push(path);
-        if (!entry.isLast || !['SingleColumnLayout', 'Form'].includes(entry.parentType)) {
-          addIssue(context, 'INVALID_FOOTER_POSITION', path, 'Footer must be the last child of the layout or Form');
+        footers.push(entry);
+        if (!entry.isTail) {
+          addIssue(context, 'INVALID_FOOTER_POSITION', path, entry.branchPath.length > 0
+            ? 'Footer must be the last element of its branch, and the branch conditional must be the last child of the layout or Form'
+            : 'Footer must be the last child of the layout or Form');
         }
       }
       if (value.type === 'PhotoPicker' || value.type === 'DocumentPicker') pickers.push(path);
     }
-    for (const path of footers.slice(1)) addIssue(context, 'INVALID_FOOTER_POSITION', path, 'at most one Footer is allowed per screen');
+    // Footers in mutually exclusive branches never render together, so the one-Footer
+    // rule only applies between footers that can share a render path.
+    const earlierFooters: ComponentEntry[] = [];
+    for (const entry of footers) {
+      const conflicts = earlierFooters.some((other) => !branchesAreExclusive(other.branchPath, entry.branchPath));
+      if (conflicts) addIssue(context, 'INVALID_FOOTER_POSITION', entry.path, 'at most one Footer is allowed per screen');
+      earlierFooters.push(entry);
+    }
     for (const path of pickers.slice(1)) {
       addIssue(context, 'COMPONENT_LIMIT_EXCEEDED', path, 'at most one PhotoPicker or DocumentPicker should be used per screen', 'warning');
     }

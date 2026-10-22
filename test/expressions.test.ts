@@ -2,10 +2,13 @@ import { describe, it, expect } from 'vitest';
 import {
   parseReference,
   resolveValue,
+  resolveConditionValue,
   resolveDeep,
   evaluateNestedExpression,
+  evaluateBareExpression,
   collectReferences,
   isDynamic,
+  isBareExpression,
   ExpressionError,
   type EvaluationContext,
 } from '../src/runtime/expressions';
@@ -118,5 +121,38 @@ describe('helpers', () => {
     expect(isDynamic('`${data.x} == 1`')).toBe(true);
     expect(isDynamic('plain')).toBe(false);
     expect(isDynamic(3)).toBe(false);
+  });
+});
+
+describe('bare expressions (If conditions without backticks)', () => {
+  it('detects well-formed expressions that contain a reference', () => {
+    expect(isBareExpression("${data.nota_baixa} == '1'")).toBe(true);
+    expect(isBareExpression('${data.age} >= 18')).toBe(true);
+    expect(isBareExpression("${screen.WELCOME.data.greeting} != 'bye'")).toBe(true);
+  });
+
+  it('does not mistake whole references, nested expressions, literals, or text for bare expressions', () => {
+    expect(isBareExpression('${data.name}')).toBe(false);
+    expect(isBareExpression('`${data.age} >= 18`')).toBe(false);
+    expect(isBareExpression("'Ana'")).toBe(false);
+    expect(isBareExpression('42')).toBe(false);
+    expect(isBareExpression('Hello ${data.name}')).toBe(false);
+    expect(isBareExpression('${data.name} === \'Ana\'')).toBe(false);
+    expect(isBareExpression(3)).toBe(false);
+  });
+
+  it('evaluates comparisons against the context', () => {
+    expect(evaluateBareExpression("${data.name} == 'Ana'", context)).toBe(true);
+    expect(evaluateBareExpression('${data.age} >= 18', context)).toBe(true);
+    expect(evaluateBareExpression('${form.count} == 3', context)).toBe(true);
+    expect(evaluateBareExpression("${data.age} < 18 || ${data.name} == 'Ana' && false", context)).toBe(false);
+  });
+
+  it('resolves conditions through resolveConditionValue and leaves other values to resolveValue', () => {
+    expect(resolveConditionValue("${data.name} == 'Ana'", context)).toBe(true);
+    expect(resolveConditionValue('${data.flag}', context)).toBe(true);
+    expect(resolveConditionValue('`${data.age} >= 18`', context)).toBe(true);
+    expect(resolveConditionValue(true, context)).toBe(true);
+    expect(resolveConditionValue('plain', context)).toBe('plain');
   });
 });
