@@ -427,7 +427,7 @@ const response = await client.exchange({ version: '3.0', action: 'INIT', flow_to
 ## Development
 
 ```bash
-bun install
+bun install --frozen-lockfile
 bun run test            # vitest
 bun run typecheck       # tsc
 bun run typecheck:vue   # vue-tsc (SFCs)
@@ -440,6 +440,18 @@ bun run test:package    # build, pack, install in a clean consumer, test CLI/res
 
 Requires Node 20 or newer for the CLI and the endpoint client (uses `node:crypto`). The runtime,
 validator and Vue renderer run in any modern browser.
+
+### Dependency updates
+
+Use Bun and commit `bun.lock` as the only lockfile. Direct dependencies, dev dependencies,
+and optional dependencies use exact versions; `bunfig.toml` makes new Bun additions exact by
+default. Keep peer dependencies and engines as compatibility ranges (including the optional
+Vue peer). Preserve any necessary workspace, file, or alias references and explain them in the PR.
+
+Update dependencies explicitly in a PR, committing the manifest and lockfile together. Review
+transitive changes and run the frozen install, both typechecks, tests, build, package smoke test,
+and `npm pack --dry-run --ignore-scripts` before merging. Pinning direct dependencies does not
+freeze transitive dependencies for npm consumers or remediate existing security advisories.
 
 
 License: MIT.
