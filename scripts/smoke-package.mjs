@@ -9,7 +9,15 @@ import { fileURLToPath } from 'node:url';
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const directory = await mkdtemp(join(tmpdir(), 'flowso-package-'));
 const children = [];
-const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !['CAL_', 'KAPSO_', 'WHATSAPP_'].some(prefix => key.startsWith(prefix))));
+const env = Object.fromEntries(Object.entries(process.env).filter(([key]) =>
+  !['CAL_', 'KAPSO_', 'WHATSAPP_'].some(prefix => key.startsWith(prefix)) && !/^npm_config_/i.test(key)));
+// Keep package-manager config and caches away from the developer's real home.
+env.HOME = join(directory, 'home');
+env.XDG_CONFIG_HOME = join(directory, 'config');
+env.npm_config_userconfig = join(directory, 'npmrc');
+env.npm_config_globalconfig = join(directory, 'global-npmrc');
+env.npm_config_cache = join(directory, 'npm-cache');
+env.BUN_INSTALL_CACHE_DIR = join(directory, 'bun-cache');
 
 function run(command, args, cwd, expectedStatus = 0) {
   const result = spawnSync(command, args, { cwd, env, encoding: 'utf8', timeout: 60_000, maxBuffer: 5 * 1024 * 1024 });
@@ -35,6 +43,10 @@ async function start(command, args, cwd, match) {
 }
 
 try {
+  await mkdir(env.HOME);
+  await mkdir(env.XDG_CONFIG_HOME);
+  await writeFile(env.npm_config_userconfig, '');
+  await writeFile(env.npm_config_globalconfig, '');
   const archive = join(directory, 'flowso.tgz');
   run('bun', ['run', 'build'], root);
   const packed = JSON.parse(run('npm', ['pack', '--ignore-scripts', '--pack-destination', directory, '--json'], root));
